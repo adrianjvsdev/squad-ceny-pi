@@ -22,12 +22,16 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Terceiros
     "rest_framework",
     "corsheaders",
-    # Nosso app
     "api",
+    "ordens_de_servico",
+    "chamados",
+    "empresas",
+    "usuarios",
 ]
+
+AUTH_USER_MODEL = "usuarios.Usuario"
 
 MIDDLEWARE = [
     # O CorsMiddleware DEVE vir antes do CommonMiddleware
@@ -99,11 +103,13 @@ REST_FRAMEWORK = {
 
 # ─── Configuração do JWT ──────────────────────────────────────────────────────
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),   # Token expira em 30 min
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),       # Refresh dura 7 dias
-    "ROTATE_REFRESH_TOKENS": True,   # Gera novo refresh token a cada uso
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id_usuario",
+    "USER_ID_CLAIM": "user_id", 
 }
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
