@@ -2,6 +2,9 @@
 
 Sistema fullstack Django + Next.js.
 
+![texto alternativo](https://github.com/user-attachments/assets/546b8ee0-d86f-480d-a7f8-320e879da4ce)
+
+
 ---
 
 ## Versão das Tecnologias
