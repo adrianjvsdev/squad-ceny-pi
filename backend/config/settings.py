@@ -33,8 +33,12 @@ INSTALLED_APPS = [
 
 AUTH_USER_MODEL = "usuarios.Usuario"
 
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "usuarios.backends.EmailBackend",
+]
+
 MIDDLEWARE = [
-    # O CorsMiddleware DEVE vir antes do CommonMiddleware
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
