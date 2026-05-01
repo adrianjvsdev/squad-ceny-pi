@@ -42,7 +42,7 @@ Antes de clonar o projeto, certifique-se de ter instalado:
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/SEU_USUARIO/squad-ceny-pi.git
+git clone https://github.com/adrianjvsdev/squad-ceny-pi.git
 cd squad-ceny-pi
 ```
 
@@ -194,6 +194,7 @@ npm run dev
 |---|---|---|---|
 | POST | `/api/token/` | Login — retorna access e refresh token | Não |
 | POST | `/api/token/refresh/` | Renova o access token | Não |
+| POST | `/api/token/verify/` | Verifica o access token | Não |
 
 **Body do login:**
 ```json
