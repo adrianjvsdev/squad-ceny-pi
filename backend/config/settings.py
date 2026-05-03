@@ -24,11 +24,12 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
-    "api",
-    "ordens_de_servico",
-    "chamados",
-    "empresas",
     "usuarios",
+    "empresas",
+    "equipamentos",
+    "ordens_servico",
+    "manutencao",
+    "notificacoes.apps.NotificacoesConfig",
 ]
 
 AUTH_USER_MODEL = "usuarios.Usuario"
@@ -65,6 +66,11 @@ TEMPLATES = [
             ],
         },
     },
+]
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "usuarios.backends.EmailBackend",
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
