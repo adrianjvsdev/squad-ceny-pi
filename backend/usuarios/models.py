@@ -1,25 +1,29 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from empresas.models import Empresa
+from empresas.models import Empresa, Setor
+
 
 class UsuarioManager(BaseUserManager):
     """
     Gerenciador customizado — ensina o Django como criar usuários.
     Obrigatório ao usar AbstractBaseUser.
     """
-    def create_user(self, email, nome, senha=None, **extra_fields):
+
+    def create_user(self, email, nome, password=None, **extra_fields):
         if not email:
             raise ValueError("O e-mail é obrigatório")
         email = self.normalize_email(email)
         usuario = self.model(email=email, nome=nome, **extra_fields)
-        usuario.set_password(senha)
+        usuario.set_password(password)
         usuario.save(using=self._db)
         return usuario
 
-    def create_superuser(self, email, nome, senha=None, **extra_fields):
+    def create_superuser(self, email, nome, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
-        return self.create_user(email, nome, senha, **extra_fields)
+        extra_fields.setdefault("perfil", "admin")
+        extra_fields.setdefault("is_active", True)
+        return self.create_user(email, nome, password, **extra_fields)
 
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
@@ -60,3 +64,40 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.nome} ({self.email})"
+
+
+class UsuarioSetor(models.Model):
+    """
+    Tabela intermediária entre Usuario e Setor com campo extra perfil_no_setor.
+    Não usamos ManyToManyField com through para manter controle total via API.
+    """
+
+    class PerfilSetor(models.TextChoices):
+        GESTOR = "gestor", "Gestor"
+        OPERADOR = "operador", "Operador"
+        VISUALIZADOR = "visualizador", "Visualizador"
+
+    id_usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name="usuariosetor_set",
+        db_column="id_usuario",
+    )
+    id_setor = models.ForeignKey(
+        Setor,
+        on_delete=models.CASCADE,
+        related_name="usuariosetor_set",
+        db_column="id_setor",
+    )
+    perfil_no_setor = models.CharField(
+        max_length=20,
+        choices=PerfilSetor.choices,
+        default=PerfilSetor.OPERADOR,
+    )
+
+    class Meta:
+        db_table = "usuario_setor"
+        unique_together = [("id_usuario", "id_setor")]
+
+    def __str__(self):
+       return f"{self.id_usuario} → {self.id_setor} ({self.perfil_no_setor})"
