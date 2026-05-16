@@ -1,1294 +1,273 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { C, font } from "@/lib/constants";
+import { Btn, Ico, Input, Select } from "@/app/components/ui";
 
-// Immersive Carousel Component
-function HeroCarousel() {
-  const [activeSlide, setActiveSlide] = useState(0);
-  const [transitionActive, setTransitionActive] = useState(false);
+const tabs = [
+  { id: "projeto", label: "O Projeto" },
+  { id: "sobre", label: "Sobre Nós" },
+  { id: "registro", label: "Registre sua Empresa" },
+  { id: "faq", label: "Dúvidas Frequentes" },
+];
 
-  const slides = [
-    {
-      id: 1,
-      bgColor: "#1a3a4a",
-      title: "Plataforma Integrada de Gestão Industrial",
-      subtitle: "Sistema unificado para automação de ordens de serviço e gestão de equipamentos",
-      description: "Controle completo das operações em tempo real",
-    },
-    {
-      id: 2,
-      bgColor: "#0f2a3a",
-      title: "Automação Inteligente de Processos",
-      subtitle: "Otimização de fluxos operacionais com IA e análise de dados",
-      description: "Aumente a eficiência operacional em até 40%",
-    },
-    {
-      id: 3,
-      bgColor: "#1a2a3a",
-      title: "Monitoramento em Tempo Real",
-      subtitle: "Dashboard interativo com visualização de todos os equipamentos e ordens",
-      description: "Visibilidade completa de suas operações",
-    },
-  ];
+const faqs = [
+  { q: "O sistema funciona com qualquer tipo de indústria?", a: "Sim! O Ceny é projetado para indústrias de manufatura, energia, petroquímica, alimentos e bebidas, e qualquer setor que precise gerenciar equipamentos e ordens de serviço." },
+  { q: "Como funciona o monitoramento IoT?", a: "Equipamentos compatíveis enviam dados em tempo real via sensores conectados. O sistema processa temperatura, RPM, pressão e outros parâmetros, gerando alertas automáticos quando os valores saem dos limites configurados." },
+  { q: "Quantos usuários posso ter no sistema?", a: "O número de usuários depende do plano contratado. Oferecemos planos a partir de 5 usuários até corporativo com usuários ilimitados." },
+  { q: "Os dados ficam seguros? Onde são armazenados?", a: "Todos os dados são armazenados com criptografia AES-256 em servidores certificados ISO 27001. Fazemos backup automático a cada 4 horas e cumprimos integralmente a LGPD." },
+  { q: "Existe período de teste gratuito?", a: "Sim! Oferecemos 30 dias de acesso completo sem necessidade de cartão de crédito. Nossa equipe faz o onboarding e configuração inicial sem custo adicional." },
+];
 
-  const nextSlide = () => {
-    setTransitionActive(true);
-    setTimeout(() => {
-      setActiveSlide((prev) => (prev + 1) % slides.length);
-      setTransitionActive(false);
-    }, 300);
-  };
+const team = [
+  { name: "Marina Lopes", role: "CEO & Co-fundadora", area: "Engenharia Industrial" },
+  { name: "Rafael Torres", role: "CTO", area: "Sistemas Embarcados & IoT" },
+  { name: "Camila Ferreira", role: "Head de Produto", area: "UX & Operações" },
+  { name: "André Souza", role: "Engenheiro de Software", area: "Backend & Infraestrutura" },
+];
 
-  const prevSlide = () => {
-    setTransitionActive(true);
-    setTimeout(() => {
-      setActiveSlide((prev) => (prev - 1 + slides.length) % slides.length);
-      setTransitionActive(false);
-    }, 300);
-  };
-
-  const goToSlide = (index) => {
-    setTransitionActive(true);
-    setTimeout(() => {
-      setActiveSlide(index);
-      setTransitionActive(false);
-    }, 300);
-  };
-
-  const currentSlide = slides[activeSlide];
-
-  return (
-    <section style={carouselStyles.section}>
-      <div
-        style={{
-          ...carouselStyles.carousel,
-          backgroundColor: currentSlide.bgColor,
-          opacity: transitionActive ? 0.8 : 1,
-          transition: "opacity 0.3s ease",
-        }}
-      >
-        {/* Background Pattern Grid */}
-        <div style={carouselStyles.bgPattern}>
-          <svg
-            viewBox="0 0 100 100"
-            style={carouselStyles.svgPattern}
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <pattern
-                id="grid"
-                width="20"
-                height="20"
-                patternUnits="userSpaceOnUse"
-              >
-                <path
-                  d="M 20 0 L 0 0 0 20"
-                  fill="none"
-                  stroke="rgba(59, 130, 246, 0.03)"
-                  strokeWidth="0.5"
-                />
-              </pattern>
-            </defs>
-            <rect width="100" height="100" fill="url(#grid)" />
-          </svg>
-        </div>
-
-        {/* Gradient Overlay */}
-        <div style={carouselStyles.gradientOverlay}></div>
-
-        {/* Content Container */}
-        <div style={carouselStyles.contentContainer}>
-          <div style={carouselStyles.textContent}>
-            <div
-              style={{
-                ...carouselStyles.textFade,
-                opacity: transitionActive ? 0 : 1,
-                transition: "opacity 0.3s ease",
-              }}
-            >
-              <h1 style={carouselStyles.title}>{currentSlide.title}</h1>
-              <p style={carouselStyles.subtitle}>{currentSlide.subtitle}</p>
-              <p style={carouselStyles.description}>{currentSlide.description}</p>
-
-              <div style={carouselStyles.ctaContainer}>
-                <Link href="/signup" style={carouselStyles.ctaPrimary}>
-                  Explorar Protótipo
-                </Link>
-                <button style={carouselStyles.ctaSecondary}>
-                  Ver Documentação
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Side Navigation */}
-        <button
-          onClick={prevSlide}
-          style={carouselStyles.navButtonLeft}
-          aria-label="Slide anterior"
-        >
-          ‹
-        </button>
-        <button
-          onClick={nextSlide}
-          style={carouselStyles.navButtonRight}
-          aria-label="Próximo slide"
-        >
-          ›
-        </button>
-
-        {/* Bottom Indicators */}
-        <div style={carouselStyles.indicatorsContainer}>
-          {slides.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              style={{
-                ...carouselStyles.indicator,
-                backgroundColor:
-                  index === activeSlide ? "#3b82f6" : "rgba(255, 255, 255, 0.3)",
-                transform: index === activeSlide ? "scale(1.3)" : "scale(1)",
-                transition: "all 0.3s ease",
-              }}
-              aria-label={`Ir para slide ${index + 1}`}
-            />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export default function IndustrialSaaSLandingPage() {
+export default function HomePage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("projeto");
   const [scrolled, setScrolled] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(null);
+  const [regForm, setRegForm] = useState({ company: "", cnpj: "", segment: "", users: "", name: "", email: "", phone: "" });
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    const fn = () => setScrolled(window.scrollY > 50);
+    window.addEventListener("scroll", fn);
+    return () => window.removeEventListener("scroll", fn);
   }, []);
 
   return (
-    <main style={styles.main}>
-      {/* Navigation */}
+    <div style={{ minHeight: "100vh", fontFamily: font, background: C.white }}>
+      <style>{`
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        * { box-sizing: border-box; }
+      `}</style>
+
+      {/* Navbar */}
       <nav
         style={{
-          ...styles.navbar,
-          borderBottom: scrolled ? "1px solid #e5e7eb" : "none",
-          backgroundColor: scrolled ? "#ffffff" : "transparent",
-          backdropFilter: scrolled ? "blur(8px)" : "none",
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+          background: scrolled ? C.white : "transparent",
+          borderBottom: scrolled ? `1px solid ${C.gray200}` : "none",
+          transition: "all 0.3s",
         }}
       >
-        <div style={styles.navContainer}>
-          <div style={styles.logo}>
-            <div style={styles.logoMark}>⬡</div>
-            <span style={styles.logoText}>Ceny</span>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "1rem 2rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: "1.5rem", color: C.blue, fontWeight: 700 }}>⬡</span>
+            <span style={{ fontSize: "1.1rem", fontWeight: 700, color: C.gray800 }}>Ceny</span>
           </div>
-          <ul style={styles.navLinks}>
-            <li>
-              <a href="#overview" style={styles.navLink}>
-                Visão Geral
-              </a>
-            </li>
-            <li>
-              <a href="#features" style={styles.navLink}>
-                Recursos
-              </a>
-            </li>
-            <li>
-              <a href="#dashboard" style={styles.navLink}>
-                Interface
-              </a>
-            </li>
-            <li>
-              <a href="#specs" style={styles.navLink}>
-                Especificações
-              </a>
-            </li>
-          </ul>
-          <Link href="/login" style={styles.loginBtn}>
-            Iniciar já
-          </Link>
+          <div style={{ display: "flex", gap: "1.75rem", alignItems: "center" }}>
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  fontSize: "0.9rem",
+                  fontWeight: 500,
+                  color: activeTab === t.id ? C.blue : C.gray500,
+                  padding: "0.3rem 0",
+                  borderBottom: `2px solid ${activeTab === t.id ? C.blue : "transparent"}`,
+                  transition: "all 0.15s",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+            <button
+              onClick={() => router.push("/login")}
+              style={{ padding: "0.55rem 1.1rem", background: C.blue, color: C.white, border: "none", borderRadius: 4, fontSize: "0.88rem", fontWeight: 600, cursor: "pointer" }}
+            >
+              Acessar
+            </button>
+          </div>
         </div>
       </nav>
 
-      {/* Immersive Hero Carousel */}
-      <HeroCarousel />
-
-      {/* Overview Section */}
-      <section id="overview" style={styles.overview}>
-        <div style={styles.container}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Sobre o Projeto</h2>
-            <p style={styles.sectionSubtitle}>
-              Protótipo de conceito para plataforma de gestão industrial moderna
-            </p>
+      {/* Hero */}
+      <section style={{ background: "#0f172a", color: C.white, padding: "6rem 2rem", textAlign: "center" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", animation: "fadeUp 0.6s ease" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 20, padding: "4px 14px", marginBottom: "1.5rem" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#38bdf8", animation: "pulse 2s infinite" }} />
+            <span style={{ fontSize: "0.75rem", color: "#93c5fd", fontWeight: 600 }}>PLATAFORMA INDUSTRIAL IoT</span>
           </div>
+          <h1 style={{ fontSize: "3rem", fontWeight: 700, margin: "0 0 1rem", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
+            Gestão Industrial<br />Integrada e Inteligente
+          </h1>
+          <p style={{ fontSize: "1.1rem", color: "#94a3b8", margin: "0 0 2rem", lineHeight: 1.7 }}>
+            Sistema unificado para automação de ordens de serviço, monitoramento de equipamentos via IoT e gestão completa de operações industriais.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <button onClick={() => setActiveTab("registro")} style={{ padding: "0.875rem 2rem", background: C.blue, color: C.white, border: "none", borderRadius: 4, fontSize: "0.95rem", fontWeight: 600, cursor: "pointer" }}>
+              Registrar empresa
+            </button>
+            <button onClick={() => router.push("/login")} style={{ padding: "0.875rem 2rem", background: "transparent", color: C.white, border: "1px solid rgba(255,255,255,0.3)", borderRadius: 4, fontSize: "0.95rem", fontWeight: 600, cursor: "pointer" }}>
+              Já tenho acesso
+            </button>
+          </div>
+        </div>
+      </section>
 
-          <div style={styles.overviewGrid}>
-            <div style={styles.overviewCard}>
-              <div style={styles.cardIcon}>📊</div>
-              <h3 style={styles.cardTitle}>Análise de Dados Industrial</h3>
-              <p style={styles.cardText}>
-                Dashboard centralizado com visualização em tempo real de todas as
-                operações, equipamentos e ordens de serviço. Integração de dados
-                de múltiplas fontes para análise holística.
+      {/* Tab Content */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "4rem 2rem", animation: "fadeUp 0.4s ease" }}>
+
+        {/* O PROJETO */}
+        {activeTab === "projeto" && (
+          <div>
+            <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+              <h2 style={{ fontSize: "2rem", fontWeight: 700, color: C.gray900, margin: "0 0 0.75rem" }}>Sobre o Projeto</h2>
+              <p style={{ color: C.gray500, maxWidth: 600, margin: "0 auto" }}>
+                Protótipo de conceito para plataforma de gestão industrial moderna, focada em eficiência operacional e rastreabilidade.
               </p>
             </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem" }}>
+              {[
+                { icon: "📊", title: "Dashboard Centralizado", desc: "Visualização em tempo real de todas as ordens de serviço, equipamentos e KPIs operacionais em um único painel." },
+                { icon: "📡", title: "Monitoramento IoT", desc: "Integração com sensores industriais para acompanhamento contínuo de temperatura, RPM, pressão e outros parâmetros críticos." },
+                { icon: "🔄", title: "Automação de Processos", desc: "Roteamento inteligente de chamados com alertas automáticos e gestão proativa de manutenções preventivas." },
+                { icon: "🗺️", title: "Mapa de Risco", desc: "Visualização geoespacial das zonas de risco da planta com alertas em tempo real e rastreabilidade de incidentes." },
+                { icon: "👥", title: "Gestão de Equipes", desc: "Controle de permissões por função (RBAC), alocação de técnicos e acompanhamento de produtividade." },
+                { icon: "📈", title: "Relatórios e Análises", desc: "Dashboards customizáveis com histórico completo de ordens, tendências e métricas de desempenho operacional." },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} style={{ background: C.gray50, border: `1px solid ${C.gray200}`, borderRadius: 8, padding: "1.5rem" }}>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>{icon}</div>
+                  <h3 style={{ margin: "0 0 0.5rem", fontSize: "1rem", fontWeight: 700, color: C.gray900 }}>{title}</h3>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: C.gray500, lineHeight: 1.6 }}>{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-            <div style={styles.overviewCard}>
-              <div style={styles.cardIcon}>🔄</div>
-              <h3 style={styles.cardTitle}>Automação de Processos</h3>
-              <p style={styles.cardText}>
-                Sistema inteligente de roteamento de ordens com algoritmos de
-                otimização. Alocação automática de recursos baseada em
-                disponibilidade e competência técnica.
+        {/* SOBRE NÓS */}
+        {activeTab === "sobre" && (
+          <div>
+            <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+              <h2 style={{ fontSize: "2rem", fontWeight: 700, color: C.gray900, margin: "0 0 0.75rem" }}>Quem Somos</h2>
+              <p style={{ color: C.gray500, maxWidth: 650, margin: "0 auto", lineHeight: 1.7 }}>
+                A Ceny nasceu da frustração com sistemas industriais desatualizados. Somos um time de engenheiros e desenvolvedores que acreditam que a indústria brasileira merece tecnologia de ponta, acessível e fácil de usar.
               </p>
             </div>
-
-            <div style={styles.overviewCard}>
-              <div style={styles.cardIcon}>📡</div>
-              <h3 style={styles.cardTitle}>Conectividade IoT</h3>
-              <p style={styles.cardText}>
-                Integração com sensores e dispositivos industriais para
-                monitoramento contínuo. Alertas em tempo real para anomalias e
-                manutenção preventiva.
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem", marginBottom: "3rem" }}>
+              {team.map(({ name, role, area }) => (
+                <div key={name} style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 8, padding: "1.25rem", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 8 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: "50%", background: C.blueLight, color: C.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", fontWeight: 700 }}>
+                    {name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: C.gray900, fontSize: "0.9rem" }}>{name}</div>
+                    <div style={{ fontSize: "0.78rem", color: C.blue, fontWeight: 600, marginTop: 2 }}>{role}</div>
+                    <div style={{ fontSize: "0.72rem", color: C.gray400, marginTop: 2 }}>{area}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: "#0f172a", borderRadius: 12, padding: "2.5rem", textAlign: "center", color: C.white }}>
+              <h3 style={{ margin: "0 0 0.75rem", fontSize: "1.4rem", fontWeight: 700 }}>Nossa Missão</h3>
+              <p style={{ margin: "0 auto", maxWidth: 600, color: "#94a3b8", lineHeight: 1.7, fontSize: "1rem" }}>
+                Democratizar a transformação digital na indústria brasileira, oferecendo uma plataforma integrada que une IoT, automação e inteligência de dados para maximizar a eficiência operacional.
               </p>
             </div>
           </div>
-        </div>
-      </section>
+        )}
 
-      {/* Features Section */}
-      <section id="features" style={styles.features}>
-        <div style={styles.container}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Funcionalidades Principais</h2>
-            <p style={styles.sectionSubtitle}>
-              Elementos-chave do sistema de gestão integrado
-            </p>
-          </div>
-
-          <div style={styles.featuresGrid}>
-            {[
-              {
-                icon: "✓",
-                title: "Gestão de Ordens",
-                desc: "Ciclo completo de vida de ordens",
-              },
-              {
-                icon: "✓",
-                title: "Monitoramento de Equipamentos",
-                desc: "Acompanhamento de desempenho em tempo real",
-              },
-              {
-                icon: "✓",
-                title: "Alocação de Recursos",
-                desc: "Distribuição inteligente de técnicos e materiais",
-              },
-              {
-                icon: "✓",
-                title: "Relatórios e Análises",
-                desc: "Dashboard com KPIs e métricas customizáveis",
-              },
-              {
-                icon: "✓",
-                title: "Controle de Acesso",
-                desc: "Gerenciamento de permissões por função",
-              },
-              {
-                icon: "✓",
-                title: "Integração com Terceiros",
-                desc: "APIs abertas para extensibilidade",
-              },
-            ].map((feature, idx) => (
-              <div key={idx} style={styles.featureItem}>
-                <div style={styles.featureIcon}>{feature.icon}</div>
-                <h4 style={styles.featureTitle}>{feature.title}</h4>
-                <p style={styles.featureDesc}>{feature.desc}</p>
+        {/* REGISTRO */}
+        {activeTab === "registro" && (
+          <div style={{ maxWidth: 680, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+              <h2 style={{ fontSize: "2rem", fontWeight: 700, color: C.gray900, margin: "0 0 0.75rem" }}>Registre sua Empresa</h2>
+              <p style={{ color: C.gray500 }}>30 dias gratuitos · Sem cartão de crédito · Onboarding incluído</p>
+            </div>
+            <div style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 8, padding: "2rem" }}>
+              <h3 style={{ margin: "0 0 1.25rem", fontSize: "0.9rem", fontWeight: 600, color: C.gray700, borderBottom: `1px solid ${C.gray200}`, paddingBottom: "0.75rem" }}>DADOS DA EMPRESA</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", marginBottom: "1.5rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
+                  <Input label="Razão Social" placeholder="Ex: Indústrias Alfa Ltda" value={regForm.company} onChange={(e) => setRegForm((f) => ({ ...f, company: e.target.value }))} />
+                  <Input label="CNPJ" placeholder="00.000.000/0001-00" value={regForm.cnpj} onChange={(e) => setRegForm((f) => ({ ...f, cnpj: e.target.value }))} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
+                  <Select label="Segmento Industrial" value={regForm.segment} onChange={(e) => setRegForm((f) => ({ ...f, segment: e.target.value }))}>
+                    <option value="">Selecione...</option>
+                    <option>Manufatura</option><option>Petroquímica</option><option>Energia</option>
+                    <option>Alimentos e Bebidas</option><option>Papel e Celulose</option><option>Mineração</option><option>Outro</option>
+                  </Select>
+                  <Select label="Nº de usuários estimado" value={regForm.users} onChange={(e) => setRegForm((f) => ({ ...f, users: e.target.value }))}>
+                    <option value="">Selecione...</option>
+                    <option>1–10 usuários</option><option>11–50 usuários</option><option>51–200 usuários</option><option>200+ usuários</option>
+                  </Select>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Dashboard Preview Section */}
-      <section id="dashboard" style={styles.dashboardSection}>
-        <div style={styles.container}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Interface do Sistema</h2>
-            <p style={styles.sectionSubtitle}>
-              Visualização da tela principal de gestão de ordens
-            </p>
-          </div>
-
-          <div style={styles.dashboardPreview}>
-            <svg viewBox="0 0 1000 600" style={{ width: "100%", height: "100%" }}>
-              {/* Background */}
-              <rect width="1000" height="600" fill="#f9fafb" />
-              <rect x="1" y="1" width="998" height="598" fill="white" stroke="#e5e7eb" strokeWidth="1" />
-
-              {/* Header */}
-              <rect x="0" y="0" width="1000" height="80" fill="#f3f4f6" stroke="#e5e7eb" strokeWidth="1" />
-              <text x="30" y="50" fontSize="18" fill="#1f2937" fontWeight="700">
-                Dashboard de Ordens de Serviço
-              </text>
-
-              {/* Left Sidebar */}
-              <rect x="0" y="80" width="200" height="520" fill="#ffffff" stroke="#e5e7eb" strokeWidth="1" />
-              <rect x="20" y="110" width="160" height="40" fill="#e0e7ff" stroke="#c7d2fe" strokeWidth="1" rx="4" />
-              <text x="40" y="137" fontSize="12" fill="#4f46e5" fontWeight="600">
-                Ordens
-              </text>
-              <rect x="20" y="170" width="160" height="30" fill="transparent" stroke="none" />
-              <text x="40" y="192" fontSize="11" fill="#6b7280">
-                Equipamentos
-              </text>
-              <rect x="20" y="220" width="160" height="30" fill="transparent" stroke="none" />
-              <text x="40" y="242" fontSize="11" fill="#6b7280">
-                Técnicos
-              </text>
-
-              {/* Main Content */}
-              {/* Metrics */}
-              <rect x="220" y="110" width="220" height="120" fill="#f9fafb" stroke="#e5e7eb" strokeWidth="1" rx="4" />
-              <text x="240" y="135" fontSize="11" fill="#6b7280" fontWeight="600">
-                Total de Ordens
-              </text>
-              <text x="240" y="170" fontSize="32" fill="#2563eb" fontWeight="700">
-                342
-              </text>
-              <text x="240" y="195" fontSize="10" fill="#9ca3af">
-                +15% em relação ao mês anterior
-              </text>
-
-              <rect x="460" y="110" width="220" height="120" fill="#f9fafb" stroke="#e5e7eb" strokeWidth="1" rx="4" />
-              <text x="480" y="135" fontSize="11" fill="#6b7280" fontWeight="600">
-                Em Execução
-              </text>
-              <text x="480" y="170" fontSize="32" fill="#059669" fontWeight="700">
-                87
-              </text>
-              <text x="480" y="195" fontSize="10" fill="#9ca3af">
-                Requer atenção em 3
-              </text>
-
-              <rect x="700" y="110" width="220" height="120" fill="#f9fafb" stroke="#e5e7eb" strokeWidth="1" rx="4" />
-              <text x="720" y="135" fontSize="11" fill="#6b7280" fontWeight="600">
-                Equipamentos Ativos
-              </text>
-              <text x="720" y="170" fontSize="32" fill="#7c3aed" fontWeight="700">
-                156
-              </text>
-              <text x="720" y="195" fontSize="10" fill="#9ca3af">
-                98% de disponibilidade
-              </text>
-
-              {/* Table */}
-              <rect x="220" y="260" width="700" height="320" fill="white" stroke="#e5e7eb" strokeWidth="1" rx="4" />
-
-              {/* Table Header */}
-              <rect x="220" y="260" width="700" height="50" fill="#f9fafb" stroke="#e5e7eb" strokeWidth="1" rx="4" />
-              <text x="240" y="292" fontSize="11" fill="#6b7280" fontWeight="700">
-                ID
-              </text>
-              <text x="320" y="292" fontSize="11" fill="#6b7280" fontWeight="700">
-                Equipamento
-              </text>
-              <text x="500" y="292" fontSize="11" fill="#6b7280" fontWeight="700">
-                Técnico
-              </text>
-              <text x="650" y="292" fontSize="11" fill="#6b7280" fontWeight="700">
-                Status
-              </text>
-              <text x="800" y="292" fontSize="11" fill="#6b7280" fontWeight="700">
-                Progresso
-              </text>
-
-              {/* Table Rows */}
-              <line x1="220" y1="310" x2="920" y2="310" stroke="#f3f4f6" strokeWidth="1" />
-              <text x="240" y="338" fontSize="11" fill="#374151">
-                OS-001
-              </text>
-              <text x="320" y="338" fontSize="11" fill="#374151">
-                Bomba A-1
-              </text>
-              <text x="500" y="338" fontSize="11" fill="#374151">
-                João Silva
-              </text>
-              <rect x="650" y="325" width="90" height="20" fill="#dbeafe" stroke="#93c5fd" strokeWidth="1" rx="2" />
-              <text x="665" y="340" fontSize="10" fill="#1e40af" fontWeight="600">
-                Em Progresso
-              </text>
-              <rect x="800" y="330" width="100" height="8" fill="#e5e7eb" stroke="none" rx="2" />
-              <rect x="800" y="330" width="65" height="8" fill="#3b82f6" stroke="none" rx="2" />
-
-              <line x1="220" y1="355" x2="920" y2="355" stroke="#f3f4f6" strokeWidth="1" />
-              <text x="240" y="383" fontSize="11" fill="#374151">
-                OS-002
-              </text>
-              <text x="320" y="383" fontSize="11" fill="#374151">
-                Motor C-5
-              </text>
-              <text x="500" y="383" fontSize="11" fill="#374151">
-                Maria Santos
-              </text>
-              <rect x="650" y="370" width="90" height="20" fill="#dcfce7" stroke="#86efac" strokeWidth="1" rx="2" />
-              <text x="665" y="385" fontSize="10" fill="#15803d" fontWeight="600">
-                Concluído
-              </text>
-              <rect x="800" y="375" width="100" height="8" fill="#e5e7eb" stroke="none" rx="2" />
-              <rect x="800" y="375" width="100" height="8" fill="#10b981" stroke="none" rx="2" />
-
-              <line x1="220" y1="400" x2="920" y2="400" stroke="#f3f4f6" strokeWidth="1" />
-              <text x="240" y="428" fontSize="11" fill="#374151">
-                OS-003
-              </text>
-              <text x="320" y="428" fontSize="11" fill="#374151">
-                Compressor B-3
-              </text>
-              <text x="500" y="428" fontSize="11" fill="#374151">
-                Carlos Oliveira
-              </text>
-              <rect x="650" y="415" width="90" height="20" fill="#fef3c7" stroke="#fcd34d" strokeWidth="1" rx="2" />
-              <text x="665" y="430" fontSize="10" fill="#92400e" fontWeight="600">
-                Planejado
-              </text>
-              <rect x="800" y="420" width="100" height="8" fill="#e5e7eb" stroke="none" rx="2" />
-              <rect x="800" y="420" width="30" height="8" fill="#f59e0b" stroke="none" rx="2" />
-
-              <line x1="220" y1="445" x2="920" y2="445" stroke="#f3f4f6" strokeWidth="1" />
-              <text x="240" y="473" fontSize="11" fill="#374151">
-                OS-004
-              </text>
-              <text x="320" y="473" fontSize="11" fill="#374151">
-                Válvula D-7
-              </text>
-              <text x="500" y="473" fontSize="11" fill="#374151">
-                Ana Costa
-              </text>
-              <rect x="650" y="460" width="90" height="20" fill="#dbeafe" stroke="#93c5fd" strokeWidth="1" rx="2" />
-              <text x="665" y="475" fontSize="10" fill="#1e40af" fontWeight="600">
-                Em Execução
-              </text>
-              <rect x="800" y="465" width="100" height="8" fill="#e5e7eb" stroke="none" rx="2" />
-              <rect x="800" y="465" width="45" height="8" fill="#3b82f6" stroke="none" rx="2" />
-            </svg>
-          </div>
-        </div>
-      </section>
-
-      {/* Specifications Section */}
-      <section id="specs" style={styles.specsSection}>
-        <div style={styles.container}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Especificações Técnicas</h2>
-            <p style={styles.sectionSubtitle}>
-              Detalhes da arquitetura e tecnologias utilizadas
-            </p>
-          </div>
-
-          <div style={styles.specsGrid}>
-            <div style={styles.specCard}>
-              <h4 style={styles.specTitle}>Frontend</h4>
-              <ul style={styles.specList}>
-                <li style={styles.specItem}>React 18+ com Next.js 13</li>
-                <li style={styles.specItem}>TypeScript para tipagem estática</li>
-                <li style={styles.specItem}>Tailwind CSS + CSS Modules</li>
-                <li style={styles.specItem}>State Management com Zustand</li>
-              </ul>
-            </div>
-
-            <div style={styles.specCard}>
-              <h4 style={styles.specTitle}>Backend</h4>
-              <ul style={styles.specList}>
-                <li style={styles.specItem}>Node.js com Express.js</li>
-                <li style={styles.specItem}>PostgreSQL para persistência</li>
-                <li style={styles.specItem}>GraphQL API</li>
-                <li style={styles.specItem}>Autenticação com JWT</li>
-              </ul>
-            </div>
-
-            <div style={styles.specCard}>
-              <h4 style={styles.specTitle}>Infraestrutura</h4>
-              <ul style={styles.specList}>
-                <li style={styles.specItem}>Docker para containerização</li>
-                <li style={styles.specItem}>Kubernetes para orquestração</li>
-                <li style={styles.specItem}>CI/CD com GitHub Actions</li>
-                <li style={styles.specItem}>AWS ou GCP deployment</li>
-              </ul>
-            </div>
-
-            <div style={styles.specCard}>
-              <h4 style={styles.specTitle}>Segurança</h4>
-              <ul style={styles.specList}>
-                <li style={styles.specItem}>HTTPS/TLS encryption</li>
-                <li style={styles.specItem}>Rate limiting e DDoS protection</li>
-                <li style={styles.specItem}>RBAC (Role-Based Access Control)</li>
-                <li style={styles.specItem}>Audit logging completo</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Metrics Section */}
-      <section style={styles.metricsSection}>
-        <div style={styles.container}>
-          <div style={styles.metricsGrid}>
-            <div style={styles.metricCard}>
-              <div style={styles.metricNumber}>98.5%</div>
-              <div style={styles.metricLabel}>Disponibilidade</div>
-              <div style={styles.metricBar}>
-                <div style={{ ...styles.metricFill, width: "98.5%" }}></div>
+              <h3 style={{ margin: "0 0 1.25rem", fontSize: "0.9rem", fontWeight: 600, color: C.gray700, borderBottom: `1px solid ${C.gray200}`, paddingBottom: "0.75rem" }}>RESPONSÁVEL PELO CADASTRO</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", marginBottom: "1.5rem" }}>
+                <Input label="Nome completo" placeholder="Seu nome" value={regForm.name} onChange={(e) => setRegForm((f) => ({ ...f, name: e.target.value }))} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
+                  <Input label="E-mail corporativo" type="email" placeholder="voce@empresa.com" value={regForm.email} onChange={(e) => setRegForm((f) => ({ ...f, email: e.target.value }))} />
+                  <Input label="Telefone" placeholder="(11) 99999-0000" value={regForm.phone} onChange={(e) => setRegForm((f) => ({ ...f, phone: e.target.value }))} />
+                </div>
               </div>
-            </div>
-            <div style={styles.metricCard}>
-              <div style={styles.metricNumber}>&lt; 100ms</div>
-              <div style={styles.metricLabel}>Latência Média</div>
-              <div style={styles.metricBar}>
-                <div style={{ ...styles.metricFill, width: "95%" }}></div>
+              <div style={{ padding: "0.85rem", background: C.blueLight, border: `1px solid #93c5fd`, borderRadius: 6, marginBottom: "1.25rem", fontSize: "0.78rem", color: "#1e40af" }}>
+                ✓ Ao registrar, você concorda com os Termos de Uso e a Política de Privacidade. Seus dados são protegidos pela LGPD.
               </div>
-            </div>
-            <div style={styles.metricCard}>
-              <div style={styles.metricNumber}>500+</div>
-              <div style={styles.metricLabel}>Ordens/Dia</div>
-              <div style={styles.metricBar}>
-                <div style={{ ...styles.metricFill, width: "85%" }}></div>
-              </div>
-            </div>
-            <div style={styles.metricCard}>
-              <div style={styles.metricNumber}>24h</div>
-              <div style={styles.metricLabel}>Suporte</div>
-              <div style={styles.metricBar}>
-                <div style={{ ...styles.metricFill, width: "100%" }}></div>
-              </div>
+              <Btn size="lg" onClick={() => alert("Cadastro enviado! Em breve nossa equipe entrará em contato.")}>
+                Iniciar período gratuito
+              </Btn>
             </div>
           </div>
-        </div>
-      </section>
+        )}
 
-      {/* CTA Section */}
-      <section style={styles.ctaSection}>
-        <div style={styles.container}>
-          <div style={styles.ctaInner}>
-            <h2 style={styles.ctaTitle}>Explorar o Protótipo</h2>
-            <p style={styles.ctaText}>
-              Acesse a plataforma e experimente todas as funcionalidades do
-              sistema de gestão industrial
-            </p>
-            <div style={styles.ctaActions}>
-              <Link href="/signup" style={styles.ctaButtonPrimary}>
-                Acessar Sistema
-              </Link>
-              <button style={styles.ctaButtonSecondary}>
-                Documentação
-              </button>
+        {/* FAQ */}
+        {activeTab === "faq" && (
+          <div style={{ maxWidth: 780, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+              <h2 style={{ fontSize: "2rem", fontWeight: 700, color: C.gray900, margin: "0 0 0.75rem" }}>Dúvidas Frequentes</h2>
+              <p style={{ color: C.gray500 }}>Encontre respostas para as perguntas mais comuns sobre o Ceny.</p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {faqs.map((faq, i) => (
+                <div key={i} style={{ background: C.white, border: `1px solid ${faqOpen === i ? C.blue : C.gray200}`, borderRadius: 8, overflow: "hidden", transition: "border-color 0.15s" }}>
+                  <button
+                    onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                    style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.25rem", background: "none", border: "none", cursor: "pointer", textAlign: "left", gap: 12 }}
+                  >
+                    <span style={{ fontSize: "0.9rem", fontWeight: 600, color: C.gray800 }}>{faq.q}</span>
+                    <span style={{ color: C.gray400, flexShrink: 0, transform: faqOpen === i ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                      <Ico name="chevDown" size={16} />
+                    </span>
+                  </button>
+                  {faqOpen === i && (
+                    <div style={{ padding: "0 1.25rem 1rem", borderTop: `1px solid ${C.gray100}` }}>
+                      <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", color: C.gray500, lineHeight: 1.7 }}>{faq.a}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: "2rem", padding: "1.5rem", background: C.gray50, borderRadius: 8, textAlign: "center", border: `1px solid ${C.gray200}` }}>
+              <p style={{ margin: "0 0 0.75rem", fontSize: "0.9rem", color: C.gray700 }}>Não encontrou sua resposta?</p>
+              <Btn variant="secondary">Entre em contato →</Btn>
             </div>
           </div>
-        </div>
-      </section>
+        )}
+      </div>
 
       {/* Footer */}
-      <footer style={styles.footer}>
-        <div style={styles.container}>
-          <div style={styles.footerContent}>
-            <div style={styles.footerSection}>
-              <div style={styles.footerLogo}>
-                <div style={styles.logoMark}>⬡</div>
-                <span>Ceny</span>
-              </div>
-              <p style={styles.footerDesc}>
-                Plataforma de gestão industrial para o futuro
-              </p>
-            </div>
-
-            <div style={styles.footerLinks}>
-              <div>
-                <h4 style={styles.footerTitle}>Produto</h4>
-                <ul style={styles.footerList}>
-                  <li>
-                    <a href="#" style={styles.footerLink}>
-                      Recursos
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" style={styles.footerLink}>
-                      Documentação
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" style={styles.footerLink}>
-                      API
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h4 style={styles.footerTitle}>Projeto</h4>
-                <ul style={styles.footerList}>
-                  <li>
-                    <a href="#" style={styles.footerLink}>
-                      Sobre
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" style={styles.footerLink}>
-                      GitHub
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" style={styles.footerLink}>
-                      Contato
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.footerBottom}>
-            <p style={styles.footerCopy}>
-              © 2026 Ceny. Projeto de conceito para gestão industrial
-              integrada.
-            </p>
-          </div>
-        </div>
+      <footer style={{ background: C.gray800, color: C.white, padding: "2rem", textAlign: "center" }}>
+        <p style={{ margin: 0, fontSize: "0.8rem", color: C.gray400 }}>
+          © 2026 Ceny · Plataforma de Gestão Industrial ·{" "}
+          <span style={{ color: C.blue }}>Termos de Uso</span> ·{" "}
+          <span style={{ color: C.blue }}>Privacidade</span>
+        </p>
       </footer>
-    </main>
+    </div>
   );
 }
-
-// Carousel Styles
-const carouselStyles = {
-  section: {
-    width: "100%",
-    height: "100vh",
-    position: "relative",
-    overflow: "hidden",
-    zIndex: 10,
-  },
-
-  carousel: {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  bgPattern: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.5,
-    zIndex: 1,
-  },
-
-  svgPattern: {
-    width: "100%",
-    height: "100%",
-  },
-
-  gradientOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    top: 0,
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 70%, rgba(0,0,0,0.5) 100%)",
-    zIndex: 2,
-  },
-
-  contentContainer: {
-    position: "relative",
-    zIndex: 3,
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  textContent: {
-    maxWidth: "700px",
-    paddingX: "2rem",
-    textAlign: "center",
-    color: "#ffffff",
-  },
-
-  textFade: {
-    transition: "opacity 0.3s ease",
-  },
-
-  title: {
-    fontSize: "3.5rem",
-    fontWeight: 700,
-    margin: "0 0 1.25rem 0",
-    lineHeight: 1.1,
-    letterSpacing: "-0.02em",
-  },
-
-  subtitle: {
-    fontSize: "1.375rem",
-    fontWeight: 500,
-    margin: "0 0 1rem 0",
-    lineHeight: 1.5,
-    opacity: 0.9,
-  },
-
-  description: {
-    fontSize: "1rem",
-    margin: "0 0 2rem 0",
-    lineHeight: 1.6,
-    opacity: 0.8,
-  },
-
-  ctaContainer: {
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "center",
-    flexWrap: "wrap",
-  },
-
-  ctaPrimary: {
-    padding: "0.875rem 2rem",
-    backgroundColor: "#3b82f6",
-    color: "#ffffff",
-    textDecoration: "none",
-    border: "1px solid #3b82f6",
-    borderRadius: "4px",
-    fontSize: "0.9375rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    display: "inline-block",
-  },
-
-  ctaSecondary: {
-    padding: "0.875rem 2rem",
-    backgroundColor: "transparent",
-    color: "#ffffff",
-    border: "1px solid rgba(255, 255, 255, 0.5)",
-    borderRadius: "4px",
-    fontSize: "0.9375rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-  },
-
-  navButtonLeft: {
-    position: "absolute",
-    left: "2rem",
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: "48px",
-    height: "48px",
-    borderRadius: "4px",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    border: "1px solid rgba(255, 255, 255, 0.2)",
-    color: "#ffffff",
-    fontSize: "1.75rem",
-    fontWeight: "300",
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 5,
-  },
-
-  navButtonRight: {
-    position: "absolute",
-    right: "2rem",
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: "48px",
-    height: "48px",
-    borderRadius: "4px",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    border: "1px solid rgba(255, 255, 255, 0.2)",
-    color: "#ffffff",
-    fontSize: "1.75rem",
-    fontWeight: "300",
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 5,
-  },
-
-  indicatorsContainer: {
-    position: "absolute",
-    bottom: "2rem",
-    left: "50%",
-    transform: "translateX(-50%)",
-    display: "flex",
-    gap: "0.75rem",
-    zIndex: 5,
-  },
-
-  indicator: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    border: "none",
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-  },
-};
-
-// Main Styles
-const styles = {
-  main: {
-    minHeight: "100vh",
-    backgroundColor: "#ffffff",
-    fontFamily: '"Segoe UI", "Helvetica Neue", sans-serif',
-    color: "#1f2937",
-  },
-
-  // Navigation
-  navbar: {
-    position: "sticky",
-    top: 0,
-    zIndex: 100,
-    transition: "all 0.3s ease",
-  },
-
-  navContainer: {
-    maxWidth: "1280px",
-    margin: "0 auto",
-    padding: "1rem 2rem",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "2rem",
-  },
-
-  logo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    textDecoration: "none",
-    cursor: "pointer",
-  },
-
-  logoMark: {
-    fontSize: "1.5rem",
-    color: "#2563eb",
-    fontWeight: 700,
-  },
-
-  logoText: {
-    fontSize: "1.125rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    letterSpacing: "-0.5px",
-  },
-
-  navLinks: {
-    display: "flex",
-    gap: "2rem",
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-    flex: 1,
-  },
-
-  navLink: {
-    color: "#6b7280",
-    textDecoration: "none",
-    fontSize: "0.9375rem",
-    fontWeight: 500,
-    transition: "color 0.3s ease",
-    cursor: "pointer",
-  },
-
-  loginBtn: {
-    padding: "0.625rem 1.25rem",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    textDecoration: "none",
-    borderRadius: "4px",
-    fontSize: "0.9375rem",
-    fontWeight: 600,
-    border: "1px solid #2563eb",
-    transition: "all 0.3s ease",
-    cursor: "pointer",
-    display: "inline-block",
-    whiteSpace: "nowrap",
-  },
-
-  // Container
-  container: {
-    maxWidth: "1280px",
-    margin: "0 auto",
-    padding: "0 2rem",
-  },
-
-  // Sections
-  overview: {
-    padding: "5rem 2rem",
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #e5e7eb",
-  },
-
-  sectionHeader: {
-    textAlign: "center",
-    marginBottom: "3.5rem",
-  },
-
-  sectionTitle: {
-    fontSize: "2.25rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: "0 0 0.75rem 0",
-    letterSpacing: "-0.01em",
-  },
-
-  sectionSubtitle: {
-    fontSize: "1rem",
-    color: "#6b7280",
-    margin: 0,
-  },
-
-  overviewGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-    gap: "2rem",
-  },
-
-  overviewCard: {
-    padding: "2.5rem 2rem",
-    backgroundColor: "#f9fafb",
-    border: "1px solid #e5e7eb",
-    borderRadius: "4px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    transition: "all 0.3s ease",
-  },
-
-  cardIcon: {
-    fontSize: "2.5rem",
-  },
-
-  cardTitle: {
-    fontSize: "1.125rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: 0,
-  },
-
-  cardText: {
-    fontSize: "0.9375rem",
-    color: "#6b7280",
-    margin: 0,
-    lineHeight: 1.6,
-  },
-
-  // Features
-  features: {
-    padding: "5rem 2rem",
-    backgroundColor: "#f9fafb",
-    borderBottom: "1px solid #e5e7eb",
-  },
-
-  featuresGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "2rem",
-  },
-
-  featureItem: {
-    padding: "2rem",
-    backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "4px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-
-  featureIcon: {
-    fontSize: "1.5rem",
-    color: "#2563eb",
-    fontWeight: "bold",
-  },
-
-  featureTitle: {
-    fontSize: "1rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: 0,
-  },
-
-  featureDesc: {
-    fontSize: "0.875rem",
-    color: "#6b7280",
-    margin: 0,
-  },
-
-  // Dashboard Section
-  dashboardSection: {
-    padding: "5rem 2rem",
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #e5e7eb",
-  },
-
-  dashboardPreview: {
-    backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "4px",
-    overflow: "hidden",
-  },
-
-  // Specs Section
-  specsSection: {
-    padding: "5rem 2rem",
-    backgroundColor: "#f9fafb",
-    borderBottom: "1px solid #e5e7eb",
-  },
-
-  specsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "2rem",
-  },
-
-  specCard: {
-    padding: "2rem",
-    backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "4px",
-  },
-
-  specTitle: {
-    fontSize: "1.125rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: "0 0 1.25rem 0",
-  },
-
-  specList: {
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-
-  specItem: {
-    fontSize: "0.875rem",
-    color: "#6b7280",
-    margin: 0,
-    paddingLeft: "1.5rem",
-    position: "relative",
-  },
-
-  // Metrics Section
-  metricsSection: {
-    padding: "5rem 2rem",
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #e5e7eb",
-  },
-
-  metricsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: "2rem",
-  },
-
-  metricCard: {
-    padding: "2.5rem 2rem",
-    backgroundColor: "#f9fafb",
-    border: "1px solid #e5e7eb",
-    borderRadius: "4px",
-    textAlign: "center",
-  },
-
-  metricNumber: {
-    fontSize: "2.5rem",
-    fontWeight: 700,
-    color: "#2563eb",
-    margin: "0 0 0.5rem 0",
-  },
-
-  metricLabel: {
-    fontSize: "0.875rem",
-    color: "#6b7280",
-    fontWeight: 600,
-    margin: "0 0 1rem 0",
-  },
-
-  metricBar: {
-    width: "100%",
-    height: "6px",
-    backgroundColor: "#e5e7eb",
-    borderRadius: "3px",
-    overflow: "hidden",
-  },
-
-  metricFill: {
-    height: "100%",
-    backgroundColor: "#3b82f6",
-    borderRadius: "3px",
-    transition: "width 0.5s ease",
-  },
-
-  // CTA Section
-  ctaSection: {
-    padding: "5rem 2rem",
-    backgroundColor: "#f9fafb",
-    borderBottom: "1px solid #e5e7eb",
-  },
-
-  ctaInner: {
-    textAlign: "center",
-  },
-
-  ctaTitle: {
-    fontSize: "2rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: "0 0 1rem 0",
-  },
-
-  ctaText: {
-    fontSize: "1.0625rem",
-    color: "#6b7280",
-    margin: "0 0 2rem 0",
-    maxWidth: "600px",
-    marginLeft: "auto",
-    marginRight: "auto",
-  },
-
-  ctaActions: {
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "center",
-    flexWrap: "wrap",
-  },
-
-  ctaButtonPrimary: {
-    padding: "0.875rem 2rem",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    textDecoration: "none",
-    border: "1px solid #2563eb",
-    borderRadius: "4px",
-    fontSize: "0.9375rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    display: "inline-block",
-  },
-
-  ctaButtonSecondary: {
-    padding: "0.875rem 2rem",
-    backgroundColor: "transparent",
-    color: "#2563eb",
-    border: "1px solid #2563eb",
-    borderRadius: "4px",
-    fontSize: "0.9375rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-  },
-
-  // Footer
-  footer: {
-    backgroundColor: "#1f2937",
-    color: "#f3f4f6",
-    padding: "4rem 2rem 2rem",
-    borderTop: "1px solid #374151",
-  },
-
-  footerContent: {
-    maxWidth: "1280px",
-    margin: "0 auto",
-    display: "grid",
-    gridTemplateColumns: "1fr auto",
-    gap: "4rem",
-    marginBottom: "3rem",
-    alignItems: "start",
-  },
-
-  footerSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-
-  footerLogo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    fontSize: "1.125rem",
-    fontWeight: 700,
-  },
-
-  footerDesc: {
-    fontSize: "0.875rem",
-    color: "#d1d5db",
-    margin: 0,
-    maxWidth: "300px",
-  },
-
-  footerLinks: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "3rem",
-  },
-
-  footerTitle: {
-    fontSize: "0.875rem",
-    fontWeight: 700,
-    color: "#ffffff",
-    margin: "0 0 1rem 0",
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-  },
-
-  footerList: {
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-
-  footerLink: {
-    color: "#d1d5db",
-    textDecoration: "none",
-    fontSize: "0.875rem",
-    transition: "color 0.3s ease",
-    cursor: "pointer",
-  },
-
-  footerBottom: {
-    maxWidth: "1280px",
-    margin: "0 auto",
-    paddingTop: "2rem",
-    borderTop: "1px solid #374151",
-  },
-
-  footerCopy: {
-    fontSize: "0.875rem",
-    color: "#d1d5db",
-    margin: 0,
-    textAlign: "center",
-  },
-};
