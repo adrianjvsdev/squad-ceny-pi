@@ -1,8 +1,9 @@
-"use client"; // Marca este componente como Client Component (roda no browser)
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { login } from "../../lib/auth";
+import { C, font } from "@/lib/constants";
+import { Input } from "@/app/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,103 +11,124 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [userType, setUserType] = useState("admin");
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      await login(username, password);
-      router.push("/dashboard"); // Redireciona após login bem-sucedido
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  function handleSubmit() {
+    if (!username || !password) {
+      setError("Preencha todos os campos.");
+      return;
     }
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      // Persist userType so dashboard can read it
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("userType", userType);
+      }
+      router.push("/dashboard");
+    }, 1000);
   }
 
   return (
-    <main style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Login</h1>
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#e8eaed",
+        fontFamily: font,
+      }}
+    >
+      <div
+        style={{
+          background: C.white,
+          padding: "2.5rem 2rem",
+          borderRadius: 4,
+          boxShadow: "0 1px 6px rgba(0,0,0,0.08)",
+          width: "100%",
+          maxWidth: 420,
+        }}
+      >
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 700, color: C.blue, letterSpacing: "-0.5px" }}>
+            Ceny
+          </h1>
+          <p style={{ margin: "0.25rem 0 1rem", fontSize: "0.7rem", color: C.gray400, letterSpacing: "0.08em" }}>
+            SISTEMA DE GESTÃO INDUSTRIAL
+          </p>
+          <hr style={{ border: "none", borderTop: `1px solid ${C.gray200}`, margin: 0 }} />
+        </div>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.field}>
-            <label style={styles.label}>Usuário</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              style={styles.input}
-              placeholder="Digite seu usuário"
-              required
-            />
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", marginBottom: "1rem" }}>
+          <Input
+            label="E-mail"
+            type="email"
+            value={username}
+            onChange={(e) => { setUsername(e.target.value); setError(""); }}
+            placeholder="seu@email.com"
+          />
+          <Input
+            label="Senha"
+            type="password"
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); setError(""); }}
+          />
+
+          {/* Demo: choose user type */}
+          <div style={{ padding: "0.65rem 0.85rem", background: C.blueLight, border: `1px solid #93c5fd`, borderRadius: 4 }}>
+            <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "#1e40af", marginBottom: 6 }}>
+              MODO DEMO — ENTRAR COMO:
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[["admin", "Administrador"], ["tecnico", "Técnico"]].map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => setUserType(v)}
+                  style={{
+                    flex: 1,
+                    padding: "0.4rem",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    border: `1px solid ${userType === v ? C.blue : C.gray300}`,
+                    background: userType === v ? C.blue : C.white,
+                    color: userType === v ? C.white : C.gray600,
+                    borderRadius: 4,
+                    cursor: "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div style={styles.field}>
-            <label style={styles.label}>Senha</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={styles.input}
-              placeholder="Digite sua senha"
-              required
-            />
-          </div>
+          {error && <p style={{ color: C.red, fontSize: "0.82rem", textAlign: "center", margin: 0 }}>{error}</p>}
 
-          {error && <p style={styles.error}>{error}</p>}
-
-          <button type="submit" style={styles.button} disabled={loading}>
-            {loading ? "Entrando..." : "Entrar"}
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{
+              marginTop: 4,
+              padding: "0.85rem",
+              background: loading ? C.gray300 : C.blue,
+              color: C.white,
+              border: "none",
+              borderRadius: 4,
+              fontSize: "0.95rem",
+              fontWeight: 500,
+              cursor: loading ? "not-allowed" : "pointer",
+              fontFamily: font,
+            }}
+          >
+            {loading ? "Entrando..." : "Acessar Sistema"}
           </button>
-        </form>
+        </div>
+
+        <p style={{ marginTop: "1.75rem", textAlign: "center", fontSize: "0.75rem", color: C.gray400 }}>
+          v4.2.1 — Ambiente de Produção
+        </p>
       </div>
     </main>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f0f2f5",
-  },
-  card: {
-    backgroundColor: "#fff",
-    padding: "2rem",
-    borderRadius: "8px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-    width: "100%",
-    maxWidth: "400px",
-  },
-  title: {
-    marginBottom: "1.5rem",
-    textAlign: "center",
-    color: "#333",
-  },
-  form: { display: "flex", flexDirection: "column", gap: "1rem" },
-  field: { display: "flex", flexDirection: "column", gap: "0.4rem" },
-  label: { fontWeight: "600", color: "#555", fontSize: "0.9rem" },
-  input: {
-    padding: "0.6rem 0.8rem",
-    border: "1px solid #ddd",
-    borderRadius: "4px",
-    fontSize: "1rem",
-    outline: "none",
-  },
-  button: {
-    padding: "0.75rem",
-    backgroundColor: "#0070f3",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    marginTop: "0.5rem",
-  },
-  error: { color: "#e53e3e", fontSize: "0.9rem", textAlign: "center" },
-};
