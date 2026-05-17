@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 
-# Carrega as variáveis do arquivo .env
+#carrega env
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,7 +14,6 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
-# Aplicações instaladas
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -24,6 +23,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "django_celery_beat",
     "usuarios",
     "empresas",
     "equipamentos",
@@ -75,7 +75,7 @@ AUTHENTICATION_BACKENDS = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Banco de dados SQLite (padrão do Django, sem configuração extra)
+# ──── Configuração do Banco de Dados ───────────────────────────────────────────────
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -83,7 +83,7 @@ DATABASES = {
     }
 }
 
-# Validação de senhas
+# ──── Validação de senhas ───────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -124,3 +124,13 @@ SIMPLE_JWT = {
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+
+# ─── Configurações do Celery ──────────────────────────────────────────────────
+CELERY_BROKER_URL = 'redis://localhost:6379/0'  # ou talvez memory? n sei
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/Sao_Paulo'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60

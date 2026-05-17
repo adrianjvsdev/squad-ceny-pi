@@ -34,3 +34,28 @@ class PlanoManutencao(models.Model):
 
     def __str__(self):
         return f"Plano #{self.id_plano} - {self.id_equipamento.tag} ({self.tipo})"
+    
+class AnomaliaIoT(models.Model):
+    class Severidade(models.TextChoices):
+        BAIXA = "baixa", "Baixa"
+        MEDIA = "media", "Média"
+        ALTA = "alta", "Alta"
+
+    equipamento = models.ForeignKey(Equipamento, on_delete=models.CASCADE)
+    tipo = models.CharField(max_length=50)
+    valor = models.FloatField()
+    valor_limite = models.FloatField()
+    severidade = models.CharField(max_length=10, choices=Severidade.choices)
+    detectada_em = models.DateTimeField(auto_now_add=True)
+    os_gerada = models.OneToOneField(
+        'ordens_servico.OrdemServico',
+        null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        db_table = "anomalia_iot"
+    
+    def __str__(self):
+        return f"{self.tipo} - {self.equipamento.tag} ({self.severidade})"
+
+        
