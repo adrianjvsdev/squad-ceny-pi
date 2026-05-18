@@ -125,6 +125,18 @@ python manage.py runserver
 
 ---
 
+### 2.8 Rodar o celery worker e beat
+Abra um terminal separado do servidor para rodar o worker
+
+```bash
+celery -A config worker --pool=solo --loglevel=info
+```
+Agora abra outro terminal para rodar o beat
+
+```bash
+celery -A config beat --loglevel=info
+```
+
 ### 3. Configurar o Frontend
 
 Abra um **novo terminal** e navegue para a pasta do frontend:
