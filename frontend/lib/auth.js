@@ -1,67 +1,113 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// ─────────────────────────────────────────────
+//  Chaves usadas no localStorage
+// ─────────────────────────────────────────────
+const ACCESS_KEY = "ceny_access";
+const REFRESH_KEY = "ceny_refresh";
 
-/**
- * Faz login enviando username e password para o backend.
- * Em caso de sucesso, salva os tokens no localStorage.
- */
-export async function login(username, password) {
-  const response = await fetch(`${API_URL}/api/token/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
+// ─────────────────────────────────────────────
+//  Persistência de tokens
+// ─────────────────────────────────────────────
+export function saveTokens(access, refresh) {
+  localStorage.setItem(ACCESS_KEY, access);
+  if (refresh) localStorage.setItem(REFRESH_KEY, refresh);
+}
 
-  if (!response.ok) {
-    throw new Error("Credenciais inválidas");
+export function getToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(ACCESS_KEY);
+}
+
+export function getRefreshToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+export function clearTokens() {
+  localStorage.removeItem(ACCESS_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+}
+
+// ─────────────────────────────────────────────
+//  Decodificação do JWT (sem biblioteca externa)
+// ─────────────────────────────────────────────
+export function decodeToken(token) {
+  if (!token) return null;
+  try {
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
   }
+}
 
-  const data = await response.json();
+// ─────────────────────────────────────────────
+//  Perfis do sistema
+//  Espelhados do modelo Usuario.Perfil no Django:
+//    "admin"    → Administrador (acesso total)
+//    "tecnico"  → Técnico       (acesso gerencial/operacional)
+//    "operador" → Operador      (acesso básico)
+// ─────────────────────────────────────────────
+export const PERFIS = {
+  ADMIN: "admin",
+  TECNICO: "tecnico",
+  OPERADOR: "operador",
+};
 
-  // Salva os tokens no localStorage do navegador
-  localStorage.setItem("access_token", data.access);
-  localStorage.setItem("refresh_token", data.refresh);
+export const PERFIL_LABELS = {
+  admin: "ADMINISTRADOR",
+  tecnico: "TÉCNICO",
+  operador: "OPERADOR",
+};
 
+// ─────────────────────────────────────────────
+//  Retorna o perfil do usuário logado a partir do JWT.
+//  O CenyTokenObtainPairSerializer embute os campos
+//  perfil, nome, email e id_empresa no payload.
+// ─────────────────────────────────────────────
+export function getUserProfile() {
+  const token = getToken();
+  const payload = decodeToken(token);
+  if (!payload) return null;
+
+  return {
+    id: payload.user_id ?? null,
+    perfil: payload.perfil ?? PERFIS.OPERADOR,
+    nome: payload.nome ?? "",
+    email: payload.email ?? "",
+    id_empresa: payload.id_empresa ?? null,
+  };
+}
+
+// ─────────────────────────────────────────────
+//  Verifica se o access token ainda é válido
+// ─────────────────────────────────────────────
+export function isTokenValid() {
+  const token = getToken();
+  const payload = decodeToken(token);
+  if (!payload?.exp) return false;
+  return payload.exp * 1000 > Date.now();
+}
+
+// ─────────────────────────────────────────────
+//  Login: chama POST /api/token/ e persiste tokens
+// ─────────────────────────────────────────────
+export async function loginRequest(email, password) {
+  const { default: api } = await import("./api");
+  const { data } = await api.post("/api/token/", { email, password });
+  saveTokens(data.access, data.refresh);
   return data;
 }
 
-/**
- * Usa o refresh token para obter um novo access token.
- * Chamado automaticamente quando o access token expirar.
- */
-export async function refreshToken() {
-  const refresh = localStorage.getItem("refresh_token");
-
-  if (!refresh) throw new Error("Sem refresh token");
-
-  const response = await fetch(`${API_URL}/api/token/refresh/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh }),
-  });
-
-  if (!response.ok) {
-    logout(); // Se o refresh também expirou, desloga o usuário
-    throw new Error("Sessão expirada, faça login novamente");
-  }
-
-  const data = await response.json();
-  localStorage.setItem("access_token", data.access);
-
-  return data.access;
-}
-
-/**
- * Remove os tokens e redireciona para o login.
- */
+// ─────────────────────────────────────────────
+//  Logout
+// ─────────────────────────────────────────────
 export function logout() {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
+  clearTokens();
   window.location.href = "/login";
-}
-
-/**
- * Retorna o access token atual ou null se não estiver logado.
- */
-export function getAccessToken() {
-  return localStorage.getItem("access_token");
 }
