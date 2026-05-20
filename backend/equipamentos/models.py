@@ -47,6 +47,7 @@ class Equipamento(models.Model):
         related_name="equipamentos",
         db_column="id_tipo",
     )
+    tem_iot = models.BooleanField(default=False)
 
     class Meta:
         db_table = "equipamentos"

@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from equipamentos.models import Equipamento
 
 
@@ -53,12 +54,13 @@ class OrdemServico(models.Model):
         db_column="id_solicitante",
     )
     tecnico = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'usuarios.UsuarioSetor',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="ordens_atribuidas",
-        db_column="id_tecnico",
+        limit_choices_to={'perfil_no_setor': 'tecnico'}, #esse cara garante somente tecnico pelo que eu vi
+        db_column="id_usuario_setor",
     )
     id_equipamento = models.ForeignKey(
         Equipamento,
@@ -74,3 +76,8 @@ class OrdemServico(models.Model):
 
     def __str__(self):
         return f"OS#{self.id_os} - {self.titulo}"
+    
+    def clean(self):
+        if self.tecnico and self.tecnico.perfil_no_setor != 'tecnico':
+            raise ValidationError("O técnico atribuído deve ter perfil 'Técnico' no setor")
+        super().clean()

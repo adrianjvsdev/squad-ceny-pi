@@ -77,6 +77,7 @@ class UsuarioSetor(models.Model):
         GESTOR = "gestor", "Gestor"
         OPERADOR = "operador", "Operador"
         VISUALIZADOR = "visualizador", "Visualizador"
+        TECNICO = "tecnico", "Técnico"
 
     id_usuario = models.ForeignKey(
         Usuario,

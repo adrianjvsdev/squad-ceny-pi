@@ -1,22 +1,69 @@
-# Python
-backend/venv/
-backend/__pycache__/
-backend/*.pyc
-backend/.env
-backend/db.sqlite3
+# Ambiente Virtual
+venv/
+env/
+ENV/
+.venv
 
-# Node
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+*.pid
+
+# Variáveis de Ambiente
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Node (para frontend)
 frontend/node_modules/
 frontend/.next/
-frontend/.env.local
+frontend/out/
+frontend/build/
+frontend/dist/
 
-# Python cache
-*.py[cod]
-__pycache__/
-backend/__pycache__/
-backend/**/__pycache__/
-*.pyc
-*.pyo
-
-# Python venv
-venv/
+# Miscellaneous
+.netrc
+*.egg-info/
+dist/
+build/
