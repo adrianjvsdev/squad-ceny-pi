@@ -11,6 +11,7 @@ frontend/.next/
 frontend/.env.local
 
 # Python cache
+*.py[cod]
 __pycache__/
 backend/__pycache__/
 backend/**/__pycache__/
