@@ -1,7 +1,7 @@
 "use client";
 
 import { C } from "@/lib/constants";
-import { Ico } from "@/app/components/ui";
+import { Ico } from "../../ui";
 import { mockNotifications } from "@/lib/constants";
 
 export function Topbar({ pageLabel, onMenuToggle, onNotifToggle, notifOpen }) {
@@ -48,7 +48,9 @@ export function Topbar({ pageLabel, onMenuToggle, onNotifToggle, notifOpen }) {
             />
           ))}
         </button>
-        <span style={{ fontSize: "0.88rem", fontWeight: 600, color: C.gray900 }}>
+        <span
+          style={{ fontSize: "0.88rem", fontWeight: 600, color: C.gray900 }}
+        >
           {pageLabel || "Dashboard"}
         </span>
       </div>

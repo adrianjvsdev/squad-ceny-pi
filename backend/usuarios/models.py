@@ -2,11 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from empresas.models import Empresa
 
+
 class UsuarioManager(BaseUserManager):
-    """
-    Gerenciador customizado — ensina o Django como criar usuários.
-    Obrigatório ao usar AbstractBaseUser.
-    """
     def create_user(self, email, nome, password=None, **extra_fields):
         if not email:
             raise ValueError("O e-mail é obrigatório")
@@ -27,20 +24,20 @@ class UsuarioManager(BaseUserManager):
 class Usuario(AbstractBaseUser, PermissionsMixin):
 
     class Perfil(models.TextChoices):
-        ADMIN = "admin", "Administrador"
-        GESTOR = "gestor", "Gestor"
+        ADMIN    = "admin",    "Administrador"
+        TECNICO  = "tecnico",  "Técnico"
         OPERADOR = "operador", "Operador"
 
-    id_usuario = models.AutoField(primary_key=True)
-    nome = models.CharField(max_length=200)
-    email = models.EmailField(unique=True)
-    perfil = models.CharField(
+    id_usuario    = models.AutoField(primary_key=True)
+    nome          = models.CharField(max_length=200)
+    email         = models.EmailField(unique=True)
+    perfil        = models.CharField(
         max_length=20,
         choices=Perfil.choices,
         default=Perfil.OPERADOR,
     )
     data_cadastro = models.DateTimeField(auto_now_add=True)
-    id_empresa = models.ForeignKey(
+    id_empresa    = models.ForeignKey(
         Empresa,
         on_delete=models.SET_NULL,
         null=True,
@@ -50,11 +47,11 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     )
 
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
+    is_staff  = models.BooleanField(default=False)
 
     objects = UsuarioManager()
 
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD  = "email"
     REQUIRED_FIELDS = ["nome"]
 
     class Meta:

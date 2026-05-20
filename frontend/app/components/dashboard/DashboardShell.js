@@ -1,102 +1,159 @@
 "use client";
 
 import { useState } from "react";
-import { C, font, adminMenu, techMenu } from "@/lib/constants";
-import { Sidebar } from "@/app/components/layout/Sidebar";
-import { Topbar } from "@/app/components/layout/Topbar";
-import { NotificationPanel } from "@/app/components/layout/NotificationPanel";
-import { OverviewPage } from "@/app/components/dashboard/pages/OverviewPage";
-import { UsersPage } from "@/app/components/dashboard/pages/UsersPage";
-import { InventoryPage } from "@/app/components/dashboard/pages/InventoryPage";
-import { TicketsPage } from "@/app/components/dashboard/pages/TicketsPage";
-import { RiskMapPage, ReportsPage, SettingsPage } from "@/app/components/dashboard/pages/OtherPages";
+import { Sidebar } from "./layout/Sidebar";
+import { Topbar } from "./layout/Topbar";
+import { NotificationPanel } from "./layout/NotificationPanel";
+import { OverviewPage } from "./pages/OverviewPage";
+import { InventoryPage } from "./pages/InventoryPage";
+import { TicketsPage } from "./pages/TicketsPage";
+import { UsersPage } from "./pages/UsersPage";
+import { RiskMapPage, ReportsPage, SettingsPage } from "./pages/OtherPages";
 
-export function DashboardShell({ userType = "admin", onLogout }) {
-  const [page, setPage] = useState("overview");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+// ─────────────────────────────────────────────────────────────────
+//  Matriz de acesso por perfil:
+//
+//  admin    → acesso total (todas as páginas)
+//  tecnico  → tudo exceto gestão de usuários
+//  operador → visão geral, chamados, inventário, mapa, configurações
+// ─────────────────────────────────────────────────────────────────
+const ALL_MENU = [
+  {
+    label: "Visão Geral",
+    icon: "monitor",
+    page: "overview",
+    roles: ["admin", "tecnico", "operador"],
+  },
+  {
+    label: "Chamados",
+    icon: "ticket",
+    page: "tickets",
+    roles: ["admin", "tecnico", "operador"],
+  },
+  {
+    label: "Inventário",
+    icon: "db",
+    page: "inventory",
+    roles: ["admin", "tecnico", "operador"],
+  },
+  {
+    label: "Mapa de Risco",
+    icon: "map",
+    page: "riskmap",
+    roles: ["admin", "tecnico", "operador"],
+  },
+  {
+    label: "Relatórios",
+    icon: "chart",
+    page: "reports",
+    roles: ["admin", "tecnico"], // operador não acessa relatórios
+  },
+  {
+    label: "Usuários",
+    icon: "users",
+    page: "users",
+    roles: ["admin"], // exclusivo do administrador
+  },
+  {
+    label: "Configurações",
+    icon: "settings",
+    page: "settings",
+    roles: ["admin", "tecnico", "operador"],
+  },
+];
+
+const PAGE_LABELS = {
+  overview: "Visão Geral",
+  tickets: "Chamados",
+  inventory: "Inventário",
+  riskmap: "Mapa de Risco",
+  reports: "Relatórios",
+  users: "Usuários",
+  settings: "Configurações",
+};
+
+function PageContent({ page, perfil }) {
+  switch (page) {
+    case "overview":
+      return <OverviewPage userType={perfil} />;
+    case "tickets":
+      return <TicketsPage userType={perfil} />;
+    case "inventory":
+      return <InventoryPage userType={perfil} />;
+    case "riskmap":
+      return <RiskMapPage />;
+    case "reports":
+      return <ReportsPage />;
+    case "users":
+      return <UsersPage />;
+    case "settings":
+      return <SettingsPage />;
+    default:
+      return <OverviewPage userType={perfil} />;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Props:
+//    perfil   → "admin" | "tecnico" | "operador"  (vindo do JWT)
+//    profile  → { id, perfil, nome, email, id_empresa }
+//    onLogout → função de logout
+// ─────────────────────────────────────────────────────────────────
+export function DashboardShell({ perfil = "operador", profile, onLogout }) {
+  const menu = ALL_MENU.filter((item) => item.roles.includes(perfil));
+
+  const [page, setPage] = useState(menu[0]?.page ?? "overview");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
 
-  const menu = userType === "admin" ? adminMenu : techMenu;
-
-  const pageMap = {
-    overview: <OverviewPage userType={userType} />,
-    users: <UsersPage />,
-    inventory: <InventoryPage userType={userType} />,
-    tickets: <TicketsPage userType={userType} />,
-    riskmap: <RiskMapPage />,
-    reports: <ReportsPage />,
-    settings: <SettingsPage />,
-  };
-
-  const handleNavigate = (p) => {
-    setPage(p);
-    setSidebarOpen(false);
-    setNotifOpen(false);
-  };
+  const safePage = menu.some((m) => m.page === page) ? page : menu[0]?.page;
 
   return (
     <div
       style={{
         display: "flex",
         minHeight: "100vh",
-        fontFamily: font,
-        background: C.gray100,
-        position: "relative",
+        background: "#f5f6f8",
+        fontFamily: "system-ui, sans-serif",
       }}
     >
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${C.gray200}; border-radius: 2px; }
-      `}</style>
+      <Sidebar
+        isOpen={sidebarOpen} // 👈 prop nova
+        menu={menu}
+        page={safePage}
+        perfil={perfil}
+        profile={profile}
+        onNavigate={(p) => {
+          setPage(p);
+          setNotifOpen(false);
+        }}
+        onLogout={onLogout}
+        onToggle={() => setSidebarOpen(false)}
+      />
 
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 40 }}
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
       <div
         style={{
-          transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
-          transition: "transform 0.25s ease",
-          position: "fixed",
-          top: 0,
-          left: 0,
-          bottom: 0,
-          zIndex: 50,
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
         }}
       >
-        <Sidebar
-          menu={menu}
-          page={page}
-          userType={userType}
-          onNavigate={handleNavigate}
-          onLogout={onLogout}
-        />
-      </div>
-
-      {/* Main */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "100vh", marginLeft: 0 }}>
         <Topbar
-          pageLabel={menu.find((m) => m.page === page)?.label}
+          pageLabel={PAGE_LABELS[safePage]}
           onMenuToggle={() => setSidebarOpen((v) => !v)}
-          onNotifToggle={() => { setNotifOpen((v) => !v); }}
+          onNotifToggle={() => setNotifOpen((v) => !v)}
           notifOpen={notifOpen}
         />
-        <main style={{ flex: 1, padding: "1.5rem", animation: "fadeIn 0.2s ease" }}>
-          {pageMap[page] || <OverviewPage userType={userType} />}
+        <main style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
+          <PageContent page={safePage} perfil={perfil} />
         </main>
       </div>
 
-      {/* Notification Panel */}
-      {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
+      <NotificationPanel
+        isOpen={notifOpen}
+        onClose={() => setNotifOpen(false)}
+      />
     </div>
   );
 }
