@@ -10,4 +10,4 @@ class SetorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Setor
         fields = ["id_setor", "nome", "id_empresa", "empresa_nome"]
-        read_only_fields = ["id_setor"]
+        read_only_fields = ["id_setor", "id_empresa"]

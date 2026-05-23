@@ -105,6 +105,30 @@ export async function loginRequest(email, password) {
 }
 
 // ─────────────────────────────────────────────
+//  Registro de empresa + admin
+// ─────────────────────────────────────────────
+export async function registroRequest({
+  nome_empresa,
+  cnpj,
+  telefone,
+  nome,
+  email,
+  senha,
+}) {
+  const { default: api } = await import("./api");
+  const { data } = await api.post("/api/registro/", {
+    nome_empresa,
+    cnpj,
+    telefone,
+    nome,
+    email,
+    senha,
+  });
+  saveTokens(data.access, data.refresh);
+  return data;
+}
+
+// ─────────────────────────────────────────────
 //  Logout
 // ─────────────────────────────────────────────
 export function logout() {

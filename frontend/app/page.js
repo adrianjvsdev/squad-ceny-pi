@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { C, font } from "@/lib/constants";
 import { Btn, Ico, Input, Select } from "@/app/components/ui";
+import { registroRequest } from "@/lib/auth";
 
 const tabs = [
   { id: "projeto", label: "O Projeto" },
@@ -50,20 +51,25 @@ const team = [
   },
 ];
 
+const FORM_VAZIO = {
+  nome_empresa: "",
+  cnpj: "",
+  telefone: "",
+  nome: "",
+  email: "",
+  senha: "",
+};
+
 export default function HomePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("projeto");
   const [scrolled, setScrolled] = useState(false);
   const [faqOpen, setFaqOpen] = useState(null);
-  const [regForm, setRegForm] = useState({
-    company: "",
-    cnpj: "",
-    segment: "",
-    users: "",
-    name: "",
-    email: "",
-    phone: "",
-  });
+
+  const [regForm, setRegForm] = useState(FORM_VAZIO);
+  const [salvando, setSalvando] = useState(false);
+  const [erros, setErros] = useState({});
+  const [erroGeral, setErroGeral] = useState(null);
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 50);
@@ -71,11 +77,79 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
+  // ─── Registro ────────────────────────────────────────────────────────────
+
+  async function handleRegistro() {
+    setErros({});
+    setErroGeral(null);
+
+    // Validação mínima no frontend
+    const novosErros = {};
+    if (!regForm.nome_empresa.trim()) novosErros.nome_empresa = "Obrigatório.";
+    if (!regForm.cnpj.trim()) novosErros.cnpj = "Obrigatório.";
+    if (!regForm.telefone.trim()) novosErros.telefone = "Obrigatório.";
+    if (!regForm.nome.trim()) novosErros.nome = "Obrigatório.";
+    if (!regForm.email.trim()) novosErros.email = "Obrigatório.";
+    if (!regForm.senha.trim()) novosErros.senha = "Obrigatório.";
+    if (regForm.senha.length > 0 && regForm.senha.length < 6)
+      novosErros.senha = "Mínimo 6 caracteres.";
+
+    if (Object.keys(novosErros).length > 0) {
+      setErros(novosErros);
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      await registroRequest(regForm);
+      router.push("/dashboard");
+    } catch (e) {
+      const detail = e?.response?.data;
+      if (detail && typeof detail === "object") {
+        // Mapeia erros de campo vindos do serializer
+        const campoMap = {
+          nome_empresa: "nome_empresa",
+          cnpj: "cnpj",
+          telefone: "telefone",
+          nome: "nome",
+          email: "email",
+          senha: "senha",
+        };
+        const errosCampo = {};
+        let temCampo = false;
+        for (const [campo, chave] of Object.entries(campoMap)) {
+          if (detail[chave]) {
+            errosCampo[campo] = Array.isArray(detail[chave])
+              ? detail[chave].join(" ")
+              : detail[chave];
+            temCampo = true;
+          }
+        }
+        if (temCampo) {
+          setErros(errosCampo);
+        } else {
+          setErroGeral("Erro ao cadastrar. Tente novamente.");
+        }
+      } else {
+        setErroGeral("Erro ao cadastrar. Tente novamente.");
+      }
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  function campo(key, value) {
+    setRegForm((f) => ({ ...f, [key]: value }));
+    if (erros[key]) setErros((e) => ({ ...e, [key]: undefined }));
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
   return (
     <div style={{ minHeight: "100vh", fontFamily: font, background: C.white }}>
       <style>{`
         @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.4} }
         * { box-sizing: border-box; }
       `}</style>
 
@@ -271,7 +345,7 @@ export default function HomePage() {
           animation: "fadeUp 0.4s ease",
         }}
       >
-        {/* O PROJETO */}
+        {/* O PROJETO — inalterado */}
         {activeTab === "projeto" && (
           <div>
             <div style={{ textAlign: "center", marginBottom: "3rem" }}>
@@ -367,7 +441,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* SOBRE NÓS */}
+        {/* SOBRE NÓS — inalterado */}
         {activeTab === "sobre" && (
           <div>
             <div style={{ textAlign: "center", marginBottom: "3rem" }}>
@@ -506,7 +580,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* REGISTRO */}
+        {/* REGISTRO — integrado */}
         {activeTab === "registro" && (
           <div style={{ maxWidth: 680, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: "2rem" }}>
@@ -524,6 +598,7 @@ export default function HomePage() {
                 30 dias gratuitos · Sem cartão de crédito · Onboarding incluído
               </p>
             </div>
+
             <div
               style={{
                 background: C.white,
@@ -532,6 +607,7 @@ export default function HomePage() {
                 padding: "2rem",
               }}
             >
+              {/* Dados da empresa */}
               <h3
                 style={{
                   margin: "0 0 1.25rem",
@@ -552,6 +628,13 @@ export default function HomePage() {
                   marginBottom: "1.5rem",
                 }}
               >
+                <Input
+                  label="Razão Social"
+                  placeholder="Ex: Indústrias Alfa Ltda"
+                  value={regForm.nome_empresa}
+                  onChange={(e) => campo("nome_empresa", e.target.value)}
+                  error={erros.nome_empresa}
+                />
                 <div
                   style={{
                     display: "grid",
@@ -559,61 +642,24 @@ export default function HomePage() {
                     gap: "0.85rem",
                   }}
                 >
-                  <Input
-                    label="Razão Social"
-                    placeholder="Ex: Indústrias Alfa Ltda"
-                    value={regForm.company}
-                    onChange={(e) =>
-                      setRegForm((f) => ({ ...f, company: e.target.value }))
-                    }
-                  />
                   <Input
                     label="CNPJ"
                     placeholder="00.000.000/0001-00"
                     value={regForm.cnpj}
-                    onChange={(e) =>
-                      setRegForm((f) => ({ ...f, cnpj: e.target.value }))
-                    }
+                    onChange={(e) => campo("cnpj", e.target.value)}
+                    error={erros.cnpj}
+                  />
+                  <Input
+                    label="Telefone"
+                    placeholder="(11) 99999-0000"
+                    value={regForm.telefone}
+                    onChange={(e) => campo("telefone", e.target.value)}
+                    error={erros.telefone}
                   />
                 </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "0.85rem",
-                  }}
-                >
-                  <Select
-                    label="Segmento Industrial"
-                    value={regForm.segment}
-                    onChange={(e) =>
-                      setRegForm((f) => ({ ...f, segment: e.target.value }))
-                    }
-                  >
-                    <option value="">Selecione...</option>
-                    <option>Manufatura</option>
-                    <option>Petroquímica</option>
-                    <option>Energia</option>
-                    <option>Alimentos e Bebidas</option>
-                    <option>Papel e Celulose</option>
-                    <option>Mineração</option>
-                    <option>Outro</option>
-                  </Select>
-                  <Select
-                    label="Nº de usuários estimado"
-                    value={regForm.users}
-                    onChange={(e) =>
-                      setRegForm((f) => ({ ...f, users: e.target.value }))
-                    }
-                  >
-                    <option value="">Selecione...</option>
-                    <option>1–10 usuários</option>
-                    <option>11–50 usuários</option>
-                    <option>51–200 usuários</option>
-                    <option>200+ usuários</option>
-                  </Select>
-                </div>
               </div>
+
+              {/* Responsável */}
               <h3
                 style={{
                   margin: "0 0 1.25rem",
@@ -637,10 +683,9 @@ export default function HomePage() {
                 <Input
                   label="Nome completo"
                   placeholder="Seu nome"
-                  value={regForm.name}
-                  onChange={(e) =>
-                    setRegForm((f) => ({ ...f, name: e.target.value }))
-                  }
+                  value={regForm.nome}
+                  onChange={(e) => campo("nome", e.target.value)}
+                  error={erros.nome}
                 />
                 <div
                   style={{
@@ -650,24 +695,25 @@ export default function HomePage() {
                   }}
                 >
                   <Input
-                    label="E-mail corporativo"
+                    label="E-mail"
                     type="email"
                     placeholder="voce@empresa.com"
                     value={regForm.email}
-                    onChange={(e) =>
-                      setRegForm((f) => ({ ...f, email: e.target.value }))
-                    }
+                    onChange={(e) => campo("email", e.target.value)}
+                    error={erros.email}
                   />
                   <Input
-                    label="Telefone"
-                    placeholder="(11) 99999-0000"
-                    value={regForm.phone}
-                    onChange={(e) =>
-                      setRegForm((f) => ({ ...f, phone: e.target.value }))
-                    }
+                    label="Senha"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={regForm.senha}
+                    onChange={(e) => campo("senha", e.target.value)}
+                    error={erros.senha}
                   />
                 </div>
               </div>
+
+              {/* LGPD */}
               <div
                 style={{
                   padding: "0.85rem",
@@ -682,21 +728,27 @@ export default function HomePage() {
                 ✓ Ao registrar, você concorda com os Termos de Uso e a Política
                 de Privacidade. Seus dados são protegidos pela LGPD.
               </div>
-              <Btn
-                size="lg"
-                onClick={() =>
-                  alert(
-                    "Cadastro enviado! Em breve nossa equipe entrará em contato.",
-                  )
-                }
-              >
-                Iniciar período gratuito
+
+              {erroGeral && (
+                <p
+                  style={{
+                    margin: "0 0 1rem",
+                    fontSize: "0.78rem",
+                    color: "red",
+                  }}
+                >
+                  {erroGeral}
+                </p>
+              )}
+
+              <Btn size="lg" onClick={handleRegistro} disabled={salvando}>
+                {salvando ? "Cadastrando..." : "Iniciar período gratuito"}
               </Btn>
             </div>
           </div>
         )}
 
-        {/* FAQ */}
+        {/* FAQ — inalterado */}
         {activeTab === "faq" && (
           <div style={{ maxWidth: 780, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>

@@ -210,7 +210,15 @@ export function Modal({ open, onClose, title, children, width = 520 }) {
 // ============================================================
 // INPUT
 // ============================================================
-export function Input({ label, type = "text", placeholder, value, onChange, ...props }) {
+export function Input({
+  label,
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  error,
+  ...props
+}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && (
@@ -233,7 +241,7 @@ export function Input({ label, type = "text", placeholder, value, onChange, ...p
         {...props}
         style={{
           padding: "0.6rem 0.85rem",
-          border: `1px solid ${C.gray300}`,
+          border: `1px solid ${error ? "red" : C.gray300}`,
           borderRadius: 4,
           fontSize: "0.9rem",
           color: C.gray900,
@@ -243,6 +251,9 @@ export function Input({ label, type = "text", placeholder, value, onChange, ...p
           ...props.style,
         }}
       />
+      {error && (
+        <span style={{ fontSize: "0.72rem", color: "red" }}>{error}</span>
+      )}
     </div>
   );
 }
@@ -288,7 +299,14 @@ export function Select({ label, children, value, onChange }) {
 // ============================================================
 // BTN
 // ============================================================
-export function Btn({ children, onClick, variant = "primary", size = "md", icon, disabled }) {
+export function Btn({
+  children,
+  onClick,
+  variant = "primary",
+  size = "md",
+  icon,
+  disabled,
+}) {
   const base = {
     border: "none",
     cursor: disabled ? "not-allowed" : "pointer",
@@ -308,9 +326,17 @@ export function Btn({ children, onClick, variant = "primary", size = "md", icon,
   };
   const variants = {
     primary: { background: C.blue, color: C.white },
-    secondary: { background: "transparent", color: C.blue, border: `1px solid ${C.blue}` },
+    secondary: {
+      background: "transparent",
+      color: C.blue,
+      border: `1px solid ${C.blue}`,
+    },
     danger: { background: C.red, color: C.white },
-    ghost: { background: "transparent", color: C.gray600, border: `1px solid ${C.gray200}` },
+    ghost: {
+      background: "transparent",
+      color: C.gray600,
+      border: `1px solid ${C.gray200}`,
+    },
   };
   return (
     <button
