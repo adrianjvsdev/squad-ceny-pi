@@ -5,13 +5,13 @@ from ordens_servico.models import OrdemServico
 
 class Notificacao(models.Model):
     class Tipo(models.TextChoices):
-        OS_ABERTA = "os_aberta", "OS Aberta"
-        OS_ATUALIZADA = "os_atualizada", "OS Atualizada"
-        OS_CONCLUIDA = "os_concluida", "OS Concluída"
+        OS_ABERTA      = "os_aberta",      "OS Aberta"
+        OS_ATUALIZADA  = "os_atualizada",  "OS Atualizada"
+        OS_CONCLUIDA   = "os_concluida",   "OS Concluída"
         PLANO_VENCENDO = "plano_vencendo", "Plano Vencendo"
 
     class Canal(models.TextChoices):
-        PUSH = "push", "Push Notification"
+        PUSH  = "push",  "Push Notification"
         EMAIL = "email", "E-mail"
 
     id_notificacao = models.AutoField(primary_key=True)
@@ -29,8 +29,10 @@ class Notificacao(models.Model):
         related_name="notificacoes",
         db_column="id_os",
     )
-    tipo = models.CharField(max_length=30, choices=Tipo.choices)
-    canal = models.CharField(max_length=10, choices=Canal.choices, default=Canal.PUSH)
+    tipo    = models.CharField(max_length=30, choices=Tipo.choices)
+    canal   = models.CharField(max_length=10, choices=Canal.choices, default=Canal.PUSH)
+    titulo = models.CharField(max_length=120, default="")    # novo
+    mensagem = models.TextField(blank=True, default="")  # novo
     timestamp_envio = models.DateTimeField(auto_now_add=True)
     lida = models.BooleanField(default=False)
 
@@ -39,7 +41,7 @@ class Notificacao(models.Model):
         ordering = ["-timestamp_envio"]
 
     def __str__(self):
-        return f"Notif #{self.id_notificacao} → {self.id_usuario} ({self.tipo})"
+        return f"Notif #{self.id_notificacao} → {self.id_usuario} | {self.titulo}"
 
 
 class LogAuditoria(models.Model):
@@ -51,10 +53,10 @@ class LogAuditoria(models.Model):
         related_name="logs_auditoria",
         db_column="id_usuario",
     )
-    acao = models.TextField()
-    tabela_afetada = models.CharField(max_length=100)
+    acao               = models.TextField()
+    tabela_afetada     = models.CharField(max_length=100)
     id_registro_afetado = models.IntegerField(null=True, blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp          = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "logs_auditoria"

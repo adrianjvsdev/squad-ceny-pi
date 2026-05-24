@@ -2,10 +2,15 @@
 
 import { C } from "@/lib/constants";
 import { Ico } from "../../ui";
-import { mockNotifications } from "@/lib/constants";
 
-export function Topbar({ pageLabel, onMenuToggle, onNotifToggle, notifOpen }) {
-  const unread = mockNotifications.filter((n) => !n.read).length;
+export function Topbar({
+  pageLabel,
+  onMenuToggle,
+  onNotifToggle,
+  notifOpen,
+  notifications = [],
+}) {
+  const unreadCount = notifications.filter((n) => !n.lida).length;
 
   return (
     <header
@@ -79,7 +84,7 @@ export function Topbar({ pageLabel, onMenuToggle, onNotifToggle, notifOpen }) {
             }}
           >
             <Ico name={icon} size={17} />
-            {icon === "bell" && unread > 0 && (
+            {icon === "bell" && unreadCount > 0 && (
               <span
                 style={{
                   position: "absolute",

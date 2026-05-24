@@ -3,15 +3,44 @@
 import { useState } from "react";
 import { C } from "@/lib/constants";
 import { Badge, Ico } from "../../ui";
-import { mockNotifications } from "@/lib/constants";
 
-export function NotificationPanel({ isOpen, onClose }) {
-  // 👈 isOpen adicionado
-  const [notifs, setNotifs] = useState(mockNotifications);
-  const [isClosing, setIsClosing] = useState(false); // 👈 estado novo
+const TIPO_CONFIG = {
+  os_aberta: { color: "blue", symbol: "i" },
+  os_atualizada: { color: "amber", symbol: "↻" },
+  os_concluida: { color: "green", symbol: "✓" },
+  plano_vencendo: { color: "red", symbol: "⚠" },
+};
+
+function tipoColor(tipo) {
+  return TIPO_CONFIG[tipo]?.color ?? "gray";
+}
+function tipoSymbol(tipo) {
+  return TIPO_CONFIG[tipo]?.symbol ?? "i";
+}
+
+function formatTime(iso) {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "agora";
+  if (min < 60) return `${min} min atrás`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h atrás`;
+  const d = Math.floor(h / 24);
+  return `${d} dia${d > 1 ? "s" : ""} atrás`;
+}
+
+export function NotificationPanel({
+  isOpen,
+  onClose,
+  notifications = [],
+  onMarkRead,
+  onMarkAllRead,
+  onDelete,
+}) {
+  const [isClosing, setIsClosing] = useState(false);
 
   const handleClose = () => {
-    // 👈 função nova
     setIsClosing(true);
     setTimeout(() => {
       setIsClosing(false);
@@ -19,11 +48,9 @@ export function NotificationPanel({ isOpen, onClose }) {
     }, 180);
   };
 
-  const markAll = () => setNotifs((n) => n.map((x) => ({ ...x, read: true })));
-  const typeColor = (t) =>
-    t === "alert" ? "red" : t === "success" ? "green" : "blue";
+  if (!isOpen && !isClosing) return null;
 
-  if (!isOpen && !isClosing) return null; // 👈 controle de montagem
+  const unreadCount = notifications.filter((n) => !n.lida).length;
 
   return (
     <div
@@ -39,7 +66,7 @@ export function NotificationPanel({ isOpen, onClose }) {
         display: "flex",
         flexDirection: "column",
         willChange: "transform, opacity",
-        animation: isClosing // 👈 animação condicional
+        animation: isClosing
           ? "slideOutRight 0.18s cubic-bezier(0.55, 0, 1, 0.45) forwards"
           : "slideInRight 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
       }}
@@ -55,6 +82,7 @@ export function NotificationPanel({ isOpen, onClose }) {
         }
       `}</style>
 
+      {/* ── Cabeçalho ── */}
       <div
         style={{
           padding: "1rem",
@@ -76,24 +104,26 @@ export function NotificationPanel({ isOpen, onClose }) {
             Notificações
           </h3>
           <span style={{ fontSize: 12, color: C.gray400 }}>
-            {notifs.filter((n) => !n.read).length} não lidas
+            {unreadCount} não lida{unreadCount !== 1 ? "s" : ""}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
-            onClick={markAll}
+            onClick={onMarkAllRead}
+            disabled={unreadCount === 0}
             style={{
               border: "none",
               background: "none",
-              cursor: "pointer",
+              cursor: unreadCount === 0 ? "default" : "pointer",
               fontSize: 12,
-              color: C.blue,
+              color: unreadCount === 0 ? C.gray300 : C.blue,
+              transition: "color 0.15s",
             }}
           >
             Marcar todas
           </button>
           <button
-            onClick={handleClose} // 👈 era onClose
+            onClick={handleClose}
             style={{
               border: "none",
               background: "none",
@@ -107,35 +137,49 @@ export function NotificationPanel({ isOpen, onClose }) {
         </div>
       </div>
 
+      {/* ── Lista ── */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {notifs.map((n) => (
+        {notifications.length === 0 && (
+          <p
+            style={{
+              textAlign: "center",
+              color: C.gray400,
+              marginTop: "2.5rem",
+              fontSize: "0.82rem",
+            }}
+          >
+            Nenhuma notificação
+          </p>
+        )}
+
+        {notifications.map((n) => (
           <div
-            key={n.id}
-            onClick={() =>
-              setNotifs((ns) =>
-                ns.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
-              )
-            }
+            key={n.id_notificacao}
+            onClick={() => !n.lida && onMarkRead(n.id_notificacao)}
             style={{
               padding: "0.85rem 1rem",
               borderBottom: `1px solid ${C.gray100}`,
-              background: n.read ? C.white : C.blueLight,
-              cursor: "pointer",
+              background: n.lida ? C.white : C.blueLight,
+              cursor: n.lida ? "default" : "pointer",
               display: "flex",
               gap: 12,
+              transition: "background 0.15s",
             }}
           >
+            {/* Bolinha */}
             <div
               style={{
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: n.read ? "transparent" : C.blue,
+                background: n.lida ? "transparent" : C.blue,
                 marginTop: 6,
                 flexShrink: 0,
+                transition: "background 0.15s",
               }}
             />
-            <div style={{ flex: 1 }}>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
                   display: "flex",
@@ -144,30 +188,67 @@ export function NotificationPanel({ isOpen, onClose }) {
                   gap: 8,
                 }}
               >
+                {/* titulo vindo direto do banco */}
                 <span
                   style={{
                     fontSize: "0.82rem",
                     fontWeight: 600,
                     color: C.gray800,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  {n.title}
+                  {n.titulo}
                 </span>
-                <Badge color={typeColor(n.type)}>
-                  {n.type === "alert" ? "⚠" : n.type === "success" ? "✓" : "i"}
-                </Badge>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Badge color={tipoColor(n.tipo)}>{tipoSymbol(n.tipo)}</Badge>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(n.id_notificacao);
+                    }}
+                    title="Excluir"
+                    style={{
+                      border: "none",
+                      background: "none",
+                      cursor: "pointer",
+                      color: C.gray400,
+                      display: "flex",
+                      alignItems: "center",
+                      padding: 2,
+                      borderRadius: 3,
+                      lineHeight: 1,
+                    }}
+                  >
+                    <Ico name="x" size={13} />
+                  </button>
+                </div>
               </div>
-              <p
-                style={{
-                  margin: "2px 0 4px",
-                  fontSize: "0.78rem",
-                  color: C.gray500,
-                }}
-              >
-                {n.desc}
-              </p>
+
+              {/* mensagem vindo direto do banco */}
+              {n.mensagem && (
+                <p
+                  style={{
+                    margin: "2px 0 4px",
+                    fontSize: "0.78rem",
+                    color: C.gray500,
+                  }}
+                >
+                  {n.mensagem}
+                </p>
+              )}
+
               <span style={{ fontSize: "0.72rem", color: C.gray400 }}>
-                {n.time}
+                {formatTime(n.timestamp_envio)}
               </span>
             </div>
           </div>

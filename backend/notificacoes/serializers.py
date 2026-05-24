@@ -3,7 +3,7 @@ from .models import Notificacao, LogAuditoria
 
 
 class NotificacaoSerializer(serializers.ModelSerializer):
-    os_titulo = serializers.CharField(source="id_os.titulo", read_only=True)
+    os_codigo = serializers.CharField(source="id_os.codigo", read_only=True)
 
     class Meta:
         model = Notificacao
@@ -11,9 +11,11 @@ class NotificacaoSerializer(serializers.ModelSerializer):
             "id_notificacao",
             "id_usuario",
             "id_os",
-            "os_titulo",
+            "os_codigo",
             "tipo",
             "canal",
+            "titulo",
+            "mensagem",
             "timestamp_envio",
             "lida",
         ]
@@ -34,4 +36,4 @@ class LogAuditoriaSerializer(serializers.ModelSerializer):
             "id_registro_afetado",
             "timestamp",
         ]
-        read_only_fields = fields  # Log é sempre somente leitura via API
+        read_only_fields = fields
