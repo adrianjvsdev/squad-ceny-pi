@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./layout/Sidebar";
 import { Topbar } from "./layout/Topbar";
 import { NotificationPanel } from "./layout/NotificationPanel";
@@ -9,14 +9,13 @@ import { InventoryPage } from "./pages/InventoryPage";
 import { TicketsPage } from "./pages/TicketsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RiskMapPage, ReportsPage, SettingsPage } from "./pages/OtherPages";
+import {
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+  deleteNotification,
+} from "@/lib/notifications";
 
-// ─────────────────────────────────────────────────────────────────
-//  Matriz de acesso por perfil:
-//
-//  admin    → acesso total (todas as páginas)
-//  tecnico  → tudo exceto gestão de usuários
-//  operador → visão geral, chamados, inventário, mapa, configurações
-// ─────────────────────────────────────────────────────────────────
 const ALL_MENU = [
   {
     label: "Visão Geral",
@@ -46,14 +45,9 @@ const ALL_MENU = [
     label: "Relatórios",
     icon: "chart",
     page: "reports",
-    roles: ["admin", "tecnico"], // operador não acessa relatórios
+    roles: ["admin", "tecnico"],
   },
-  {
-    label: "Usuários",
-    icon: "users",
-    page: "users",
-    roles: ["admin"], // exclusivo do administrador
-  },
+  { label: "Usuários", icon: "users", page: "users", roles: ["admin"] },
   {
     label: "Configurações",
     icon: "settings",
@@ -93,18 +87,57 @@ function PageContent({ page, perfil }) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
-//  Props:
-//    perfil   → "admin" | "tecnico" | "operador"  (vindo do JWT)
-//    profile  → { id, perfil, nome, email, id_empresa }
-//    onLogout → função de logout
-// ─────────────────────────────────────────────────────────────────
 export function DashboardShell({ perfil = "operador", profile, onLogout }) {
   const menu = ALL_MENU.filter((item) => item.roles.includes(perfil));
 
   const [page, setPage] = useState(menu[0]?.page ?? "overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+
+  // Carrega notificações reais ao montar o shell
+  useEffect(() => {
+    getNotifications()
+      .then(setNotifications)
+      .catch((err) => console.error("Erro ao carregar notificações:", err));
+  }, []);
+
+  // Marcar uma como lida — atualização otimista com rollback em falha
+  const handleMarkRead = async (id) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id_notificacao === id ? { ...n, lida: true } : n)),
+    );
+    try {
+      await markAsRead(id);
+    } catch (err) {
+      console.error("Erro ao marcar como lida:", err);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id_notificacao === id ? { ...n, lida: false } : n)),
+      );
+    }
+  };
+
+  // Marcar todas como lidas — otimista; recarga em falha
+  const handleMarkAllRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, lida: true })));
+    try {
+      await markAllAsRead();
+    } catch (err) {
+      console.error("Erro ao marcar todas como lidas:", err);
+      getNotifications().then(setNotifications).catch(console.error);
+    }
+  };
+
+  // Excluir — otimista; recarga em falha
+  const handleDelete = async (id) => {
+    setNotifications((prev) => prev.filter((n) => n.id_notificacao !== id));
+    try {
+      await deleteNotification(id);
+    } catch (err) {
+      console.error("Erro ao excluir notificação:", err);
+      getNotifications().then(setNotifications).catch(console.error);
+    }
+  };
 
   const safePage = menu.some((m) => m.page === page) ? page : menu[0]?.page;
 
@@ -118,7 +151,7 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
       }}
     >
       <Sidebar
-        isOpen={sidebarOpen} // 👈 prop nova
+        isOpen={sidebarOpen}
         menu={menu}
         page={safePage}
         perfil={perfil}
@@ -144,6 +177,7 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
           onMenuToggle={() => setSidebarOpen((v) => !v)}
           onNotifToggle={() => setNotifOpen((v) => !v)}
           notifOpen={notifOpen}
+          notifications={notifications}
         />
         <main style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
           <PageContent page={safePage} perfil={perfil} />
@@ -153,6 +187,10 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
       <NotificationPanel
         isOpen={notifOpen}
         onClose={() => setNotifOpen(false)}
+        notifications={notifications}
+        onMarkRead={handleMarkRead}
+        onMarkAllRead={handleMarkAllRead}
+        onDelete={handleDelete}
       />
     </div>
   );
