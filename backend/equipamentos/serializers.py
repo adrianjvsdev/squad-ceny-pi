@@ -28,5 +28,6 @@ class EquipamentoSerializer(serializers.ModelSerializer):
             "setor_nome",
             "id_tipo",
             "tipo_nome",
+            "tem_iot",
         ]
         read_only_fields = ["id_equipamento"]

@@ -33,6 +33,8 @@ db.sqlite3-journal
 celerybeat-schedule
 celerybeat.pid
 *.pid
+celerybeat-schedule-wal
+celerybeat-schedule-shm
 
 # Variáveis de Ambiente
 .env
