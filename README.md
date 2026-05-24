@@ -125,18 +125,26 @@ python manage.py runserver
 
 ---
 
-### 2.8 Rodar o celery worker e beat
-Abra um terminal separado do servidor para rodar o worker
+### 2.8 Rodar o Celery Worker e o Celery Beat
+
+Para o Celery funcionar corretamente, é necessário ter o Redis rodando na máquina.
+
+No Windows, instale o **Memurai Redis**, que funciona como servidor Redis local:
+
+- Baixe e instale o Memurai Redis: https://www.memurai.com/get-memurai
+- Após a instalação, verifique se o serviço do Memurai está rodando no Windows.
+
+O Celery precisa rodar em terminais separados do servidor Django.
+
+#### Terminal 1 - Backend
+
+Mantenha o servidor do backend rodando normalmente:
 
 ```bash
-celery -A config worker --pool=solo --loglevel=info
-```
-Agora abra outro terminal para rodar o beat
-
-```bash
-celery -A config beat --loglevel=info
+python manage.py runserver
 ```
 
+---
 ### 3. Configurar o Frontend
 
 Abra um **novo terminal** e navegue para a pasta do frontend:
