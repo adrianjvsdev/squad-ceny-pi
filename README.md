@@ -138,10 +138,35 @@ O Celery precisa rodar em terminais separados do servidor Django.
 
 #### Terminal 1 - Backend
 
-Mantenha o servidor do backend rodando normalmente:
+Mantenha o servidor do backend rodando normalmente.
+
+---
+
+#### Terminal 2 - Celery Worker
+
+Abra um novo terminal, entre na pasta do backend, ative o ambiente virtual e rode o worker:
 
 ```bash
-python manage.py runserver
+cd backend
+venv\Scripts\activate
+celery -A config worker --pool=solo --loglevel=info
+```
+
+---
+
+#### Terminal 3 - Celery Beat
+
+Abra outro terminal, entre novamente na pasta do backend, ative o ambiente virtual e rode o beat:
+
+```bash
+cd backend
+venv\Scripts\activate
+celery -A config beat --loglevel=info
+```
+
+---
+
+O backend, o Celery Worker e o Celery Beat devem ficar rodando ao mesmo tempo, cada um em seu próprio terminal.
 ```
 
 ---
