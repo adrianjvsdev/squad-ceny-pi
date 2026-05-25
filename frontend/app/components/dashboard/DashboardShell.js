@@ -208,6 +208,7 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
           onNotifToggle={handleNotifToggle}
           notifOpen={notifOpen}
           notifications={notifications}
+          onLogout={onLogout}
         />
         <main style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
           <PageContent page={safePage} perfil={perfil} profile={profile} />

@@ -9,6 +9,7 @@ export function Topbar({
   onNotifToggle,
   notifOpen,
   notifications = [],
+  onLogout,
 }) {
   const unreadCount = notifications.filter((n) => !n.lida).length;
 
@@ -62,13 +63,14 @@ export function Topbar({
 
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         {[
-          { icon: "search", action: null },
-          { icon: "bell", action: onNotifToggle },
-          { icon: "user", action: null },
-        ].map(({ icon, action }, i) => (
+          { icon: "search", action: null, label: "Buscar" },
+          { icon: "bell", action: onNotifToggle, label: "Notificações" },
+          { icon: "logout", action: onLogout, label: "Sair" },
+        ].map(({ icon, action, label }, i) => (
           <button
             key={i}
             onClick={action}
+            title={label}
             style={{
               position: "relative",
               display: "flex",

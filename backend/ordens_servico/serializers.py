@@ -27,6 +27,7 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
             "data_abertura",
             "data_inicio",
             "data_fim",
+            "proxima_manutencao",
             "relatorio_intervencao",
             "timestamp_retorno_operacao",
             "solicitante",
@@ -41,7 +42,15 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
             "origem",
             "requer_aprovacao_admin",
         ]
-        read_only_fields = ["id_os", "data_abertura", "solicitante"]
+        read_only_fields = [
+            "id_os",
+            "data_abertura",
+            "data_inicio",
+            "data_fim",
+            "proxima_manutencao",
+            "timestamp_retorno_operacao",
+            "solicitante",
+        ]
 
     def get_origem(self, obj):
         if obj.solicitante is not None:

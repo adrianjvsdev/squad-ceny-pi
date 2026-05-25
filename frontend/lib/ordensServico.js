@@ -25,6 +25,11 @@ export async function reabrirOrdemServico(idOs) {
   return data;
 }
 
+export async function iniciarOrdemServico(idOs) {
+  const { data } = await api.patch(`/api/ordens-servico/${idOs}/iniciar/`);
+  return data;
+}
+
 export async function concluirOrdemServico(idOs, payload = {}) {
   const { data } = await api.patch(`/api/ordens-servico/${idOs}/concluir/`, payload);
   return data;

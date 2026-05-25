@@ -43,6 +43,7 @@ class OrdemServico(models.Model):
     data_abertura = models.DateTimeField(auto_now_add=True)
     data_inicio = models.DateTimeField(blank=True, null=True)
     data_fim = models.DateTimeField(blank=True, null=True)
+    proxima_manutencao = models.DateField(blank=True, null=True)
     relatorio_intervencao = models.TextField(blank=True, null=True)
     timestamp_retorno_operacao = models.DateTimeField(blank=True, null=True)
 

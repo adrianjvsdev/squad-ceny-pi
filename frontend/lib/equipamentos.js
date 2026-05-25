@@ -137,10 +137,12 @@ export function enriquecerEquipamento(
     iot: equipamento.tem_iot,
 
     // Datas
-    lastMaint: equipamento.data_instalacao
-      ? new Date(equipamento.data_instalacao).toLocaleDateString("pt-BR")
+    lastMaint: equipamento.ultima_manutencao
+      ? new Date(equipamento.ultima_manutencao).toLocaleDateString("pt-BR")
       : "—",
-    nextMaint: proximaMaint?.proxima_execucao
+    nextMaint: equipamento.proxima_manutencao
+      ? new Date(equipamento.proxima_manutencao).toLocaleDateString("pt-BR")
+      : proximaMaint?.proxima_execucao
       ? new Date(proximaMaint.proxima_execucao).toLocaleDateString("pt-BR")
       : "—",
 

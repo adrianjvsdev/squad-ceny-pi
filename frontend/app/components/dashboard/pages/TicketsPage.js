@@ -10,11 +10,12 @@ import {
   concluirOrdemServico,
   criarOrdemServico,
   desativarOrdensAbertas,
+  iniciarOrdemServico,
   listOrdensServico,
   reabrirOrdemServico,
   rejeitarOrdemServico,
 } from "@/lib/ordensServico";
-import { Badge, Btn, Modal, Select } from "@/app/components/ui";
+import { Badge, Btn, Input, Modal, Select } from "@/app/components/ui";
 
 const PRIORIDADE_LABELS = {
   baixa: "Baixa",
@@ -25,7 +26,7 @@ const PRIORIDADE_LABELS = {
 
 const STATUS_LABELS = {
   aberta: "Planejado",
-  em_andamento: "Em Execução",
+  em_andamento: "Aguardando início",
   concluida: "Concluído",
   cancelada: "Cancelado",
 };
@@ -39,6 +40,12 @@ const TIPO_LABELS = {
 function formatDate(dt) {
   if (!dt) return "—";
   return new Date(dt).toLocaleDateString("pt-BR");
+}
+
+function todayInputValue() {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 10);
 }
 
 function parseApiError(error, fallback) {
@@ -76,6 +83,8 @@ export function TicketsPage({ userType, profile }) {
   const [tecnicosDisponiveis, setTecnicosDisponiveis] = useState([]);
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState("");
   const [relatorioConclusao, setRelatorioConclusao] = useState("");
+  const [proximaManutencao, setProximaManutencao] = useState("");
+  const [processandoInicio, setProcessandoInicio] = useState(false);
   const [processandoConclusao, setProcessandoConclusao] = useState(false);
   const [processandoLote, setProcessandoLote] = useState(false);
 
@@ -94,6 +103,7 @@ export function TicketsPage({ userType, profile }) {
     () =>
       tickets.map((ticket) => {
         const equipamento = equipamentosPorId.get(String(ticket.id_equipamento));
+        const atendimentoIniciado = Boolean(ticket.data_inicio);
 
         return {
           id: `OS-${String(ticket.id_os).padStart(3, "0")}`,
@@ -104,9 +114,17 @@ export function TicketsPage({ userType, profile }) {
           urgencia:
             PRIORIDADE_LABELS[ticket.prioridade] ?? ticket.prioridade ?? "Baixa",
           statusRaw: ticket.status,
-          status: STATUS_LABELS[ticket.status] ?? ticket.status,
+          status:
+            ticket.status === "em_andamento" && atendimentoIniciado
+              ? "Em Execução"
+              : STATUS_LABELS[ticket.status] ?? ticket.status,
           desc: ticket.descricao ?? "Sem descrição.",
           created: formatDate(ticket.data_abertura),
+          started: formatDate(ticket.data_inicio),
+          finished: formatDate(ticket.data_fim),
+          dataInicio: ticket.data_inicio ?? null,
+          proximaManutencao: ticket.proxima_manutencao ?? "",
+          proximaManutencaoLabel: formatDate(ticket.proxima_manutencao),
           tech: ticket.tecnico_nome ?? "Não atribuído",
           tecnicoVinculoId: ticket.tecnico ?? "",
           tecnicoUsuarioId: ticket.tecnico_usuario_id ?? null,
@@ -207,12 +225,20 @@ export function TicketsPage({ userType, profile }) {
   const podeReabrirSelecionada =
     userType === "admin" &&
     (selected?.statusRaw === "cancelada" || selected?.statusRaw === "concluida");
-  const podeConcluirSelecionada =
+
+  const tecnicoEhResponsavel =
     userType === "tecnico" &&
-    selected?.statusRaw === "em_andamento" &&
     selected?.tecnicoUsuarioId != null &&
     profile?.id != null &&
     Number(selected?.tecnicoUsuarioId) === Number(profile?.id);
+  const podeIniciarSelecionada =
+    tecnicoEhResponsavel &&
+    selected?.statusRaw === "em_andamento" &&
+    !selected?.dataInicio;
+  const podeConcluirSelecionada =
+    tecnicoEhResponsavel &&
+    selected?.statusRaw === "em_andamento" &&
+    Boolean(selected?.dataInicio);
 
   async function handleCriarChamado() {
     setErroForm(null);
@@ -306,18 +332,42 @@ export function TicketsPage({ userType, profile }) {
     }
   }
 
+  async function handleIniciarSelecionada() {
+    if (!selected?.id_os) return;
+    setErroAprovacao(null);
+    setProcessandoInicio(true);
+    try {
+      await iniciarOrdemServico(selected.id_os);
+      setSelected(null);
+      await carregarChamados();
+    } catch (e) {
+      setErroAprovacao(
+        parseApiError(e, "Nao foi possivel iniciar a ordem de servico."),
+      );
+    } finally {
+      setProcessandoInicio(false);
+    }
+  }
+
   async function handleConcluirSelecionada() {
     if (!selected?.id_os) return;
     setErroAprovacao(null);
+
+    if (!proximaManutencao) {
+      setErroAprovacao("Informe a data da proxima manutencao.");
+      return;
+    }
+
     setProcessandoConclusao(true);
     try {
-      const payload = {};
+      const payload = { proxima_manutencao: proximaManutencao };
       const relatorio = relatorioConclusao.trim();
       if (relatorio) payload.relatorio_intervencao = relatorio;
 
       await concluirOrdemServico(selected.id_os, payload);
       setSelected(null);
       setRelatorioConclusao("");
+      setProximaManutencao("");
       await carregarChamados();
     } catch (e) {
       setErroAprovacao(
@@ -489,6 +539,7 @@ export function TicketsPage({ userType, profile }) {
                   ticket.tecnicoVinculoId ? String(ticket.tecnicoVinculoId) : "",
                 );
                 setRelatorioConclusao(ticket.relatorio ?? "");
+                setProximaManutencao(ticket.proximaManutencao ?? "");
                 setErroAprovacao(null);
               }}
               style={{
@@ -548,6 +599,7 @@ export function TicketsPage({ userType, profile }) {
           setErroAprovacao(null);
           setTecnicoSelecionado("");
           setRelatorioConclusao("");
+          setProximaManutencao("");
         }}
         title={`Chamado ${selected?.id}`}
         width={580}
@@ -560,7 +612,16 @@ export function TicketsPage({ userType, profile }) {
               <Badge color="gray">{selected.tipo}</Badge>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[["Equipamento", selected.equip], ["Setor", selected.setor], ["Técnico", selected.tech], ["Origem", selected.origem], ["Data de abertura", selected.created]].map(([k, v]) => (
+              {[
+                ["Equipamento", selected.equip],
+                ["Setor", selected.setor],
+                ["Técnico", selected.tech],
+                ["Origem", selected.origem],
+                ["Data de abertura", selected.created],
+                ["Início do atendimento", selected.started],
+                ["Conclusão", selected.finished],
+                ["Próxima manutenção", selected.proximaManutencaoLabel],
+              ].map(([k, v]) => (
                 <div key={k} style={{ padding: "0.65rem 0.85rem", background: C.gray50, borderRadius: 6 }}>
                   <div style={{ fontSize: "0.68rem", fontWeight: 600, color: C.gray400, marginBottom: 2 }}>{k.toUpperCase()}</div>
                   <div style={{ fontSize: "0.85rem", color: C.gray800 }}>{v}</div>
@@ -625,6 +686,17 @@ export function TicketsPage({ userType, profile }) {
                 )
               ))}
 
+            {podeIniciarSelecionada && (
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <Btn
+                  disabled={processandoInicio}
+                  onClick={handleIniciarSelecionada}
+                >
+                  {processandoInicio ? "Iniciando..." : "Iniciar atendimento"}
+                </Btn>
+              </div>
+            )}
+
             {podeConcluirSelecionada && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -639,9 +711,17 @@ export function TicketsPage({ userType, profile }) {
                     style={{ padding: "0.6rem 0.85rem", border: `1px solid ${C.gray300}`, borderRadius: 4, fontSize: "0.9rem", resize: "vertical", outline: "none" }}
                   />
                 </div>
+                <Input
+                  label="Próxima manutenção"
+                  type="date"
+                  value={proximaManutencao}
+                  min={todayInputValue()}
+                  onChange={(e) => setProximaManutencao(e.target.value)}
+                  error={!proximaManutencao ? "Obrigatorio para concluir a OS." : null}
+                />
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
                   <Btn
-                    disabled={processandoConclusao}
+                    disabled={processandoConclusao || !proximaManutencao}
                     onClick={handleConcluirSelecionada}
                   >
                     {processandoConclusao ? "Concluindo..." : "Concluir OS"}
@@ -652,6 +732,7 @@ export function TicketsPage({ userType, profile }) {
 
             {userType === "tecnico" &&
               selected.statusRaw === "em_andamento" &&
+              !podeIniciarSelecionada &&
               !podeConcluirSelecionada && (
                 <p style={{ margin: 0, fontSize: "0.78rem", color: C.gray500 }}>
                   Somente o tecnico atribuido pode concluir esta OS.

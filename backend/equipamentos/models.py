@@ -26,6 +26,8 @@ class Equipamento(models.Model):
     modelo = models.CharField(max_length=200, blank=True, null=True)
     data_instalacao = models.DateField(blank=True, null=True)
     data_entrada_operacao = models.DateTimeField(blank=True, null=True)
+    ultima_manutencao = models.DateTimeField(blank=True, null=True)
+    proxima_manutencao = models.DateField(blank=True, null=True)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,

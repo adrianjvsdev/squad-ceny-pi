@@ -16,20 +16,20 @@ import { isTokenValid, getUserProfile, clearTokens } from "@/lib/auth";
  */
 export function useAuth() {
   const router = useRouter();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [authState] = useState(() => {
+    const valid = isTokenValid();
+    return {
+      valid,
+      profile: valid ? getUserProfile() : null,
+    };
+  });
 
   useEffect(() => {
-    if (!isTokenValid()) {
+    if (!authState.valid) {
       clearTokens();
       router.replace("/login");
-      return;
     }
+  }, [authState.valid, router]);
 
-    const p = getUserProfile();
-    setProfile(p);
-    setLoading(false);
-  }, [router]);
-
-  return { profile, loading };
+  return { profile: authState.profile, loading: !authState.valid };
 }

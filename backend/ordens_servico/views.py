@@ -9,6 +9,7 @@ from .services import OrdemServicoService
 MSG_APROVAR_ADMIN = "Apenas administradores podem aprovar ordens de servico."
 MSG_REJEITAR_ADMIN = "Apenas administradores podem rejeitar ordens de servico."
 MSG_REABRIR_ADMIN = "Apenas administradores podem reabrir ordens de servico."
+MSG_INICIAR_TECNICO = "Apenas o tecnico atribuido pode iniciar esta OS."
 MSG_CONCLUIR_TECNICO = "Apenas o tecnico atribuido pode concluir esta OS."
 MSG_DESATIVAR_ADMIN = "Apenas administradores podem desativar ordens de servico."
 
@@ -61,6 +62,17 @@ class OrdemServicoViewSet(viewsets.ModelViewSet):
             return self._bad_request(erro)
         return self._ok(ordem)
 
+    @action(detail=True, methods=["patch"], url_path="iniciar")
+    def iniciar(self, request, pk=None):
+        ordem = self.get_object()
+        if not OrdemServicoService.tecnico_atribuido(request.user, ordem):
+            return self._forbidden(MSG_INICIAR_TECNICO)
+        try:
+            ordem = OrdemServicoService.iniciar(ordem)
+        except ValueError as erro:
+            return self._bad_request(erro)
+        return self._ok(ordem)
+
     @action(detail=True, methods=["patch"], url_path="concluir")
     def concluir(self, request, pk=None):
         ordem = self.get_object()
@@ -68,7 +80,9 @@ class OrdemServicoViewSet(viewsets.ModelViewSet):
             return self._forbidden(MSG_CONCLUIR_TECNICO)
         try:
             ordem = OrdemServicoService.concluir(
-                ordem, request.data.get("relatorio_intervencao")
+                ordem,
+                request.data.get("relatorio_intervencao"),
+                request.data.get("proxima_manutencao"),
             )
         except ValueError as erro:
             return self._bad_request(erro)

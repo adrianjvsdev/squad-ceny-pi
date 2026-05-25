@@ -1,3 +1,4 @@
+from django.contrib.auth.models import update_last_login
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -22,6 +23,13 @@ class CenyTokenObtainPairSerializer(TokenObtainPairSerializer):
         )
 
         return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        update_last_login(None, self.user)
+        self.user.refresh_from_db(fields=["last_login"])
+        data["last_login"] = self.user.last_login
+        return data
 
 
 class CenyTokenObtainPairView(TokenObtainPairView):

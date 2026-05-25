@@ -1,5 +1,6 @@
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from notificacoes.services import NotificacaoService
 from usuarios.models import Usuario
@@ -69,6 +70,18 @@ class OrdemServicoService:
         return ordem
 
     @staticmethod
+    def iniciar(ordem):
+        """Registra o inicio real do atendimento pelo tecnico atribuido."""
+        if ordem.status != OrdemServico.Status.EM_ANDAMENTO:
+            raise ValueError("Apenas OS em andamento podem ser iniciadas.")
+
+        if ordem.data_inicio is None:
+            ordem.data_inicio = timezone.now()
+            ordem.save(update_fields=["data_inicio"])
+
+        return ordem
+
+    @staticmethod
     def rejeitar(ordem):
         """Rejeita uma OS aberta por operador e notifica o solicitante."""
         if not OrdemServicoService._requer_aprovacao_admin(ordem):
@@ -93,27 +106,54 @@ class OrdemServicoService:
             raise ValueError("Apenas OS canceladas ou concluidas podem ser reabertas.")
 
         ordem.status = OrdemServico.Status.ABERTA
-        ordem.save(update_fields=["status"])
+        ordem.data_inicio = None
+        ordem.data_fim = None
+        ordem.proxima_manutencao = None
+        ordem.timestamp_retorno_operacao = None
+        ordem.save(
+            update_fields=[
+                "status",
+                "data_inicio",
+                "data_fim",
+                "proxima_manutencao",
+                "timestamp_retorno_operacao",
+            ]
+        )
         NotificacaoService.notificar_reabertura(ordem)
         return ordem
 
     @staticmethod
-    def concluir(ordem, relatorio=None):
+    def concluir(ordem, relatorio=None, proxima_manutencao=None):
         """Conclui uma OS em andamento e registra o relatorio opcional."""
         if ordem.status != OrdemServico.Status.EM_ANDAMENTO:
             raise ValueError("Apenas OS em andamento podem ser concluidas.")
 
+        proxima_manutencao = OrdemServicoService._normalizar_proxima_manutencao(
+            proxima_manutencao
+        )
         agora = timezone.now()
         ordem.status = OrdemServico.Status.CONCLUIDA
+        if ordem.data_inicio is None:
+            ordem.data_inicio = agora
         ordem.data_fim = agora
+        ordem.proxima_manutencao = proxima_manutencao
         ordem.timestamp_retorno_operacao = agora
-        campos_atualizados = ["status", "data_fim", "timestamp_retorno_operacao"]
+        campos_atualizados = [
+            "status",
+            "data_inicio",
+            "data_fim",
+            "proxima_manutencao",
+            "timestamp_retorno_operacao",
+        ]
 
         if relatorio is not None:
             ordem.relatorio_intervencao = str(relatorio).strip()
             campos_atualizados.append("relatorio_intervencao")
 
         ordem.save(update_fields=campos_atualizados)
+        OrdemServicoService._atualizar_manutencao_equipamento(
+            ordem, agora, proxima_manutencao
+        )
         NotificacaoService.notificar_conclusao(ordem)
         return ordem
 
@@ -134,3 +174,29 @@ class OrdemServicoService:
             ordem.solicitante is not None
             and ordem.solicitante.perfil == Usuario.Perfil.OPERADOR
         )
+
+    @staticmethod
+    def _normalizar_proxima_manutencao(valor):
+        if not valor:
+            raise ValueError("Informe a data da proxima manutencao.")
+
+        if isinstance(valor, str):
+            valor = parse_date(valor)
+
+        if valor is None:
+            raise ValueError("Data da proxima manutencao invalida.")
+
+        if valor < timezone.localdate():
+            raise ValueError("A proxima manutencao nao pode ser anterior a hoje.")
+
+        return valor
+
+    @staticmethod
+    def _atualizar_manutencao_equipamento(ordem, data_fim, proxima_manutencao):
+        if ordem.id_equipamento_id is None:
+            return
+
+        equipamento = ordem.id_equipamento
+        equipamento.ultima_manutencao = data_fim
+        equipamento.proxima_manutencao = proxima_manutencao
+        equipamento.save(update_fields=["ultima_manutencao", "proxima_manutencao"])

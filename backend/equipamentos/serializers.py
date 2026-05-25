@@ -23,6 +23,8 @@ class EquipamentoSerializer(serializers.ModelSerializer):
             "modelo",
             "data_instalacao",
             "data_entrada_operacao",
+            "ultima_manutencao",
+            "proxima_manutencao",
             "status",
             "id_setor",
             "setor_nome",
@@ -30,4 +32,4 @@ class EquipamentoSerializer(serializers.ModelSerializer):
             "tipo_nome",
             "tem_iot",
         ]
-        read_only_fields = ["id_equipamento"]
+        read_only_fields = ["id_equipamento", "ultima_manutencao", "proxima_manutencao"]
