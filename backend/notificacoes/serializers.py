@@ -1,9 +1,8 @@
 from rest_framework import serializers
 from .models import Notificacao, LogAuditoria
 
-
 class NotificacaoSerializer(serializers.ModelSerializer):
-    os_codigo = serializers.CharField(source="id_os.codigo", read_only=True)
+    os_codigo = serializers.IntegerField(source="id_os.id_os", read_only=True)
 
     class Meta:
         model = Notificacao

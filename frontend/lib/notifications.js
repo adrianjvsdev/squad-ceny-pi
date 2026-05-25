@@ -3,7 +3,9 @@ import api from "./api";
 const BASE = "/api/notificacoes";
 
 export async function getNotifications() {
-  const { data } = await api.get(`${BASE}/`);
+  const { data } = await api.get(`${BASE}/`, {
+    params: { _ts: Date.now() },
+  });
   // DRF com paginação retorna { results: [...] }; sem paginação retorna array direto
   return Array.isArray(data) ? data : (data.results ?? []);
 }

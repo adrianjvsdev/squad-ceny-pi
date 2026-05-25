@@ -153,6 +153,9 @@ export function UsersPage() {
 
     setSalvando(true);
     try {
+      const perfilNoSetorEfetivo =
+        form.perfil === "tecnico" ? "tecnico" : form.perfil_no_setor;
+
       if (editando) {
         // ── Edição ──────────────────────────────────────────────────────
         const payload = {
@@ -172,19 +175,19 @@ export function UsersPage() {
             // Mudou de setor ou perfil_no_setor
             if (
               String(vinculoAtual.id_setor) !== form.id_setor ||
-              vinculoAtual.perfil_no_setor !== form.perfil_no_setor
+              vinculoAtual.perfil_no_setor !== perfilNoSetorEfetivo
             ) {
               await atualizarSetor(
                 vinculoAtual.id,
                 form.id_setor,
-                form.perfil_no_setor,
+                perfilNoSetorEfetivo,
               );
             }
           } else {
             await associarSetor(
               editando.id_usuario,
               form.id_setor,
-              form.perfil_no_setor,
+              perfilNoSetorEfetivo,
             );
           }
         }
@@ -201,7 +204,7 @@ export function UsersPage() {
           await associarSetor(
             novo.id_usuario,
             Number(form.id_setor),
-            form.perfil_no_setor,
+            perfilNoSetorEfetivo,
           );
         }
       }
