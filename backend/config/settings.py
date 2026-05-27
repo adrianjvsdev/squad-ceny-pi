@@ -137,6 +137,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
+    "UPDATE_LAST_LOGIN": True,
     "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id_usuario",

@@ -2,7 +2,7 @@
 // DESIGN TOKENS
 // ============================================================
 export const C = {
-  blue: "#2B5CE6",
+  blue: "#2b5ce6",
   blueLight: "#EFF4FF",
   blueLight2: "#DBEAFE",
   gray50: "#f9fafb",

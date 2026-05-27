@@ -34,9 +34,9 @@ export function RiskMapPage() {
   const [erro, setErro] = useState(null);
 
   const riskColors = {
-    low: { fill: "#dcfce7", stroke: "#86efac", label: "#15803d", badge: "Seguro" },
-    medium: { fill: "#fef3c7", stroke: "#fcd34d", label: "#92400e", badge: "Cuidado" },
-    high: { fill: "#fee2e2", stroke: "#fca5a5", label: "#b91c1c", badge: "Cuidado extremo" },
+    low: { fill: "#dcfce7", stroke: "#86efac", label: "#15803d", badge: "Baixo" },
+    medium: { fill: "#fef3c7", stroke: "#fcd34d", label: "#92400e", badge: "Médio" },
+    high: { fill: "#fee2e2", stroke: "#fca5a5", label: "#b91c1c", badge: "Alto" },
   };
 
   const carregarMapa = useCallback(async () => {
@@ -158,7 +158,13 @@ export function RiskMapPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <div>
           <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: C.gray900 }}>Mapa de Risco</h2>
           <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: C.gray400 }}>
@@ -182,7 +188,14 @@ export function RiskMapPage() {
         </div>
 
         {/* Zone Detail */}
-        <div style={{ width: 240, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div
+          style={{
+            width: 240,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
           {selectedZone ? (
             <div style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 8, padding: "1rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
@@ -231,7 +244,15 @@ export function RiskMapPage() {
               )}
             </div>
           ) : (
-            <div style={{ background: C.gray50, border: `1px dashed ${C.gray200}`, borderRadius: 8, padding: "1.5rem", textAlign: "center" }}>
+            <div
+              style={{
+                background: C.gray50,
+                border: `1px dashed ${C.gray200}`,
+                borderRadius: 8,
+                padding: "1.5rem",
+                textAlign: "center",
+              }}
+            >
               <Ico name="map" size={24} color={C.gray300} />
               <p style={{ margin: "0.5rem 0 0", fontSize: "0.78rem", color: C.gray400 }}>Clique em um setor para ver detalhes</p>
             </div>
@@ -262,26 +283,91 @@ export function RiskMapPage() {
 export function ReportsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-      <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: C.gray900 }}>Relatórios</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1rem" }}>
+      <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: C.gray900 }}>
+        Relatórios
+      </h2>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: "1rem",
+        }}
+      >
         {[
-          { title: "Produtividade Semanal", desc: "Chamados abertos vs concluídos por período", icon: "chart", color: C.blue },
-          { title: "Equipamentos por Status", desc: "Distribuição dos equipamentos na planta", icon: "db", color: C.purple },
-          { title: "Técnicos e Alocação", desc: "Horas trabalhadas por colaborador", icon: "users", color: C.green },
-          { title: "Manutenções Pendentes", desc: "Equipamentos com manutenção vencida", icon: "alert", color: C.amber },
+          {
+            title: "Produtividade Semanal",
+            desc: "Chamados abertos vs concluídos por período",
+            icon: "chart",
+            color: C.blue,
+          },
+          {
+            title: "Equipamentos por Status",
+            desc: "Distribuição dos equipamentos na planta",
+            icon: "db",
+            color: C.purple,
+          },
+          {
+            title: "Técnicos e Alocação",
+            desc: "Horas trabalhadas por colaborador",
+            icon: "users",
+            color: C.green,
+          },
+          {
+            title: "Manutenções Pendentes",
+            desc: "Equipamentos com manutenção vencida",
+            icon: "alert",
+            color: C.amber,
+          },
         ].map(({ title, desc, icon, color }) => (
           <div
             key={title}
-            style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 8, padding: "1.25rem", cursor: "pointer", transition: "all 0.15s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = color; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.gray200; }}
+            style={{
+              background: C.white,
+              border: `1px solid ${C.gray200}`,
+              borderRadius: 8,
+              padding: "1rem",
+            }}
           >
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "0.75rem" }}>
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 10,
+                background: `${color}15`,
+                display: "grid",
+                placeItems: "center",
+                marginBottom: 12,
+              }}
+            >
               <Ico name={icon} size={18} color={color} />
             </div>
-            <h4 style={{ margin: "0 0 4px", fontSize: "0.88rem", fontWeight: 600, color: C.gray800 }}>{title}</h4>
-            <p style={{ margin: 0, fontSize: "0.75rem", color: C.gray400 }}>{desc}</p>
-            <div style={{ marginTop: "0.85rem", fontSize: "0.75rem", color, fontWeight: 600 }}>Gerar relatório →</div>
+
+            <h3
+              style={{
+                margin: "0 0 0.35rem",
+                fontSize: "0.88rem",
+                fontWeight: 700,
+                color: C.gray900,
+              }}
+            >
+              {title}
+            </h3>
+
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.78rem",
+                color: C.gray500,
+                lineHeight: 1.5,
+              }}
+            >
+              {desc}
+            </p>
+
+            <div style={{ marginTop: "1rem" }}>
+              <Btn size="sm">Gerar relatório</Btn>
+            </div>
           </div>
         ))}
       </div>
@@ -289,19 +375,48 @@ export function ReportsPage() {
   );
 }
 
-// ============================================================
-// SETTINGS PAGE
-// ============================================================
 export function SettingsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-      <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: C.gray900 }}>Configurações</h2>
+      <h2
+        style={{
+          margin: 0,
+          fontSize: "1rem",
+          fontWeight: 700,
+          color: C.gray900,
+        }}
+      >
+        Configurações
+      </h2>
       {[
-        { title: "Perfil", fields: [{ label: "Nome", placeholder: "João Gerente" }, { label: "E-mail", placeholder: "joao@ceny.com" }] },
+        {
+          title: "Perfil",
+          fields: [
+            { label: "Nome", placeholder: "João Gerente" },
+            { label: "E-mail", placeholder: "joao@ceny.com" },
+          ],
+        },
         { title: "Notificações", fields: [] },
       ].map(({ title, fields }) => (
-        <div key={title} style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 8, padding: "1.25rem" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: "0.88rem", fontWeight: 600, color: C.gray800 }}>{title}</h3>
+        <div
+          key={title}
+          style={{
+            background: C.white,
+            border: `1px solid ${C.gray200}`,
+            borderRadius: 8,
+            padding: "1.25rem",
+          }}
+        >
+          <h3
+            style={{
+              margin: "0 0 1rem",
+              fontSize: "0.88rem",
+              fontWeight: 600,
+              color: C.gray800,
+            }}
+          >
+            {title}
+          </h3>
           {fields.map((f) => (
             <div key={f.label} style={{ marginBottom: "0.75rem" }}>
               <Input label={f.label} placeholder={f.placeholder} />
@@ -309,9 +424,28 @@ export function SettingsPage() {
           ))}
           {title === "Notificações" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {["Alertas de equipamentos IoT", "Novos chamados atribuídos", "Chamados concluídos", "Relatórios semanais"].map((item) => (
-                <label key={item} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.85rem", color: C.gray700 }}>
-                  <input type="checkbox" defaultChecked style={{ width: 15, height: 15 }} />
+              {[
+                "Alertas de equipamentos IoT",
+                "Novos chamados atribuídos",
+                "Chamados concluídos",
+                "Relatórios semanais",
+              ].map((item) => (
+                <label
+                  key={item}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    color: C.gray700,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    style={{ width: 15, height: 15 }}
+                  />
                   {item}
                 </label>
               ))}
