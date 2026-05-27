@@ -1,7 +1,9 @@
+from django.contrib.auth.models import update_last_login
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Usuario, UsuarioSetor
@@ -22,6 +24,7 @@ class RegistroView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         usuario = serializer.save()
+        update_last_login(None, usuario)
 
         refresh = RefreshToken.for_user(usuario)
         refresh["perfil"]     = usuario.perfil
@@ -50,6 +53,10 @@ class UsuarioViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(id_empresa=self.request.user.id_empresa)  # ← linha adicionada
+
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    def me(self, request):
+        return Response(self.get_serializer(request.user).data)
 
 
 class UsuarioSetorViewSet(viewsets.ModelViewSet):

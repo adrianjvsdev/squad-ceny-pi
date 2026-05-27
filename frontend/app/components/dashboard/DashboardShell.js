@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Sidebar } from "./layout/Sidebar";
 import { Topbar } from "./layout/Topbar";
 import { NotificationPanel } from "./layout/NotificationPanel";
@@ -60,12 +60,12 @@ const PAGE_LABELS = {
   settings: "Configurações",
 };
 
-function PageContent({ page, perfil }) {
+function PageContent({ page, perfil, profile }) {
   switch (page) {
     case "overview":
       return <OverviewPage userType={perfil} />;
     case "tickets":
-      return <TicketsPage userType={perfil} />;
+      return <TicketsPage userType={perfil} profile={profile} />;
     case "inventory":
       return <InventoryPage userType={perfil} />;
     case "riskmap":
@@ -87,12 +87,42 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
-  // Carrega notificações reais ao montar o shell
-  useEffect(() => {
-    getNotifications()
-      .then(setNotifications)
-      .catch((err) => console.error("Erro ao carregar notificações:", err));
+  const refreshNotifications = useCallback(async () => {
+    try {
+      const data = await getNotifications();
+      setNotifications(data);
+    } catch (err) {
+      console.error("Erro ao carregar notificações:", err);
+    }
   }, []);
+
+  // Carrega notificações e mantém atualização automática.
+  useEffect(() => {
+    const intervalId = setInterval(refreshNotifications, 3000);
+    const timeoutId = setTimeout(refreshNotifications, 0);
+
+    const onFocus = () => refreshNotifications();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshNotifications();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshNotifications]);
+
+  const handleNotifToggle = () => {
+    setNotifOpen((prev) => {
+      const next = !prev;
+      if (next) refreshNotifications();
+      return next;
+    });
+  };
 
   // Marcar uma como lida — atualização otimista com rollback em falha
   const handleMarkRead = async (id) => {
@@ -167,12 +197,13 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
         <Topbar
           pageLabel={PAGE_LABELS[safePage]}
           onMenuToggle={() => setSidebarOpen((v) => !v)}
-          onNotifToggle={() => setNotifOpen((v) => !v)}
+          onNotifToggle={handleNotifToggle}
           notifOpen={notifOpen}
           notifications={notifications}
+          onLogout={onLogout}
         />
         <main style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
-          <PageContent page={safePage} perfil={perfil} />
+          <PageContent page={safePage} perfil={perfil} profile={profile} />
         </main>
       </div>
 

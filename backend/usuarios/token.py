@@ -1,6 +1,6 @@
+from django.contrib.auth.models import update_last_login
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from django.contrib.auth.models import update_last_login
 
 
 class CenyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -20,9 +20,9 @@ class CenyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
 
         # Campos extras embutidos no JWT
-        token["perfil"]     = user.perfil
-        token["nome"]       = user.nome
-        token["email"]      = user.email
+        token["perfil"] = user.perfil
+        token["nome"] = user.nome
+        token["email"] = user.email
         token["id_empresa"] = (
             user.id_empresa.id_empresa if user.id_empresa else None
         )
@@ -34,6 +34,12 @@ class CenyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Atualiza last_login no banco após autenticação bem-sucedida
         update_last_login(None, self.user)
+
+        # Recarrega o campo atualizado
+        self.user.refresh_from_db(fields=["last_login"])
+
+        # Expõe o last_login no retorno da autenticação
+        data["last_login"] = self.user.last_login
 
         return data
 

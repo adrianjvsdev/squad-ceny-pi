@@ -78,6 +78,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
 class UsuarioSetorSerializer(serializers.ModelSerializer):
     usuario_nome = serializers.CharField(source="id_usuario.nome", read_only=True)
+    usuario_perfil = serializers.CharField(source="id_usuario.perfil", read_only=True)
     setor_nome   = serializers.CharField(source="id_setor.nome",   read_only=True)
 
     class Meta:
@@ -86,6 +87,7 @@ class UsuarioSetorSerializer(serializers.ModelSerializer):
             "id",
             "id_usuario",
             "usuario_nome",
+            "usuario_perfil",
             "id_setor",
             "setor_nome",
             "perfil_no_setor",

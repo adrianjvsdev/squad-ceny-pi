@@ -76,12 +76,33 @@ AUTHENTICATION_BACKENDS = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # ──── Configuração do Banco de Dados ───────────────────────────────────────────────
+DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        # Essa branch está configurada para o postgresSQL, para voltar ao sqlite basta descomentar as linhas abaixo e comentar as linhas do postgres.
+        # Lembre-se de editar o .env também removendo as variaveis do postgres.
+        # "ENGINE": DB_ENGINE,
+        # "NAME": os.getenv("DB_NAME", BASE_DIR / "db.sqlite3"),
+        "ENGINE": os.getenv("DB_ENGINE"),
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
+
     }
 }
+
+if DB_ENGINE != "django.db.backends.sqlite3":
+    DATABASES["default"].update(
+        {
+            "USER": os.getenv("DB_USER", ""),
+            "PASSWORD": os.getenv("DB_PASSWORD", ""),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
+    )
 
 # ──── Validação de senhas ───────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [

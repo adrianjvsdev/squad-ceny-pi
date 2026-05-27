@@ -101,6 +101,30 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000
 python manage.py migrate
 ```
 
+### Se quiser usar PostgreSQL, siga o tutorial abaixo:
+
+#### Exportar os dados do SQLite
+
+```bash
+python manage.py dumpdata > dados.json
+```
+
+#### Configurar o PostgreSQL
+
+Vá em:
+
+```bash
+backend/config/settings.py
+```
+
+Retire o comentário da configuração do banco PostgreSQL e comente as linhas do SQLite.
+
+#### Rodar as migrations no PostgreSQL
+
+```bash
+python manage.py migrate
+```
+
 #### 2.6 Criar o superusuário
 
 ```bash

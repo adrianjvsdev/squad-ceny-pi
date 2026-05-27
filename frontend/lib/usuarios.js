@@ -7,6 +7,11 @@ export async function getUsuarios() {
   return data;
 }
 
+export async function getUsuarioAtual() {
+  const { data } = await api.get("/api/usuarios/me/");
+  return data;
+}
+
 export async function createUsuario({
   nome,
   email,
