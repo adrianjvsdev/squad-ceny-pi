@@ -90,6 +90,24 @@ DEBUG=True
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
+### Banco de dados (Opcional)
+
+Por padrão, o projeto já funciona normalmente utilizando o SQLite (`db.sqlite3`), sem necessidade de configuração adicional.
+
+Caso queira utilizar PostgreSQL, adicione também as seguintes variáveis no arquivo `.env`:
+
+```env
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=SEU_BANCO
+DB_USER=SEU_USUARIO
+DB_PASSWORD=SUA_SENHA
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+> Certifique-se de que o PostgreSQL esteja instalado e que esse banco de dados exista na sua máquina.
+
+
 > ⚠️ Para gerar uma SECRET_KEY segura, rode:
 > ```bash
 > python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
