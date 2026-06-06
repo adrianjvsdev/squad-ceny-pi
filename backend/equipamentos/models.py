@@ -1,10 +1,18 @@
 from django.db import models
-from empresas.models import Setor
+from empresas.models import Setor, Empresa
 
 class TipoEquipamento(models.Model):
     id_tipo = models.AutoField(primary_key=True)
     nome = models.CharField(max_length=200)
     descricao = models.TextField(blank=True, null=True)
+    id_empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="tipos_equipamento",
+        db_column="id_empresa",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "tipos_equipamento"

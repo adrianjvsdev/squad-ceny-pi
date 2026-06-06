@@ -15,8 +15,7 @@ class SetorViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         usuario = self.request.user
-        if usuario.perfil == "admin":
-            return Setor.objects.all()
+        # Todos os usuários veem apenas setores da sua empresa
         return Setor.objects.filter(id_empresa=usuario.id_empresa)
 
     def perform_create(self, serializer):

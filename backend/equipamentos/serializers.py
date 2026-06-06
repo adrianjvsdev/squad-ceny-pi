@@ -6,7 +6,7 @@ class TipoEquipamentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoEquipamento
         fields = "__all__"
-        read_only_fields = ["id_tipo"]
+        read_only_fields = ["id_tipo", "id_empresa"]
 
 
 class EquipamentoSerializer(serializers.ModelSerializer):
@@ -33,3 +33,11 @@ class EquipamentoSerializer(serializers.ModelSerializer):
             "tem_iot",
         ]
         read_only_fields = ["id_equipamento", "ultima_manutencao", "proxima_manutencao"]
+
+    def validate_id_setor(self, value):
+        user = self.context['request'].user
+        if value.id_empresa != user.id_empresa:
+            raise serializers.ValidationError(
+                "Você não pode adicionar um equipamento a um setor fora da sua empresa."
+            )
+        return value
