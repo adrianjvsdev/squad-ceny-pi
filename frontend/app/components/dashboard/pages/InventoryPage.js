@@ -578,7 +578,6 @@ export function InventoryPage({ userType }) {
             background: C.white,
             border: `1px solid ${C.gray200}`,
             borderRadius: 8,
-            overflow: "hidden",
           }}
         >
           <table
@@ -771,13 +770,13 @@ export function InventoryPage({ userType }) {
                   }}
                 >
                   {[
-                    ["🌡️ Temperatura", selectedEquip.temp, "Normal < 80°C"],
+                    ["Temperatura", selectedEquip.temp, "Normal < 80°C"],
                     [
-                      "⚡ Rotação",
+                      "Rotação",
                       selectedEquip.rpm + " RPM",
                       "Nominal: 1450 RPM",
                     ],
-                    ["🔵 Pressão", selectedEquip.pressao, "Máx: 6.0 bar"],
+                    ["Pressão", selectedEquip.pressao, "Máx: 6.0 bar"],
                   ].map(([label, val, sub]) => (
                     <div
                       key={label}

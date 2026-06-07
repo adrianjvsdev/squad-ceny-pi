@@ -82,14 +82,14 @@ DATABASES = {
     "default": {
         # Essa branch está configurada para o postgresSQL, para voltar ao sqlite basta descomentar as linhas abaixo e comentar as linhas do postgres.
         # Lembre-se de editar o .env também removendo as variaveis do postgres.
-        # "ENGINE": DB_ENGINE,
-        # "NAME": os.getenv("DB_NAME", BASE_DIR / "db.sqlite3"),
-        "ENGINE": os.getenv("DB_ENGINE"),
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST"),
-        "PORT": os.getenv("DB_PORT"),
+        "ENGINE": DB_ENGINE,
+        "NAME": os.getenv("DB_NAME", BASE_DIR / "db.sqlite3"),
+        # "ENGINE": os.getenv("DB_ENGINE"),
+        # "NAME": os.getenv("DB_NAME"),
+        # "USER": os.getenv("DB_USER"),
+        # "PASSWORD": os.getenv("DB_PASSWORD"),
+        # "HOST": os.getenv("DB_HOST"),
+        # "PORT": os.getenv("DB_PORT"),
 
     }
 }
