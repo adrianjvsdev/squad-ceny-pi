@@ -184,6 +184,15 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
+  useEffect(() => {
+    const element = document.getElementById(`section-${activeTab}`);
+    if (element) {
+      setTimeout(() => {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
+  }, [activeTab]);
+
   // ─── Registro ────────────────────────────────────────────────────────────
 
   async function handleRegistro() {
@@ -628,7 +637,7 @@ export default function HomePage() {
 
         {/* SOBRE NÓS */}
         {activeTab === "sobre" && (
-          <div>
+          <div id="section-sobre">
             <div style={{ textAlign: "center", marginBottom: "3rem" }}>
               <h2
                 style={{
@@ -768,7 +777,7 @@ export default function HomePage() {
 
         {/* REGISTRO — formulário original intacto */}
         {activeTab === "registro" && (
-          <div style={{ maxWidth: 680, margin: "0 auto" }}>
+          <div id="section-registro" style={{ maxWidth: 680, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: "2rem" }}>
               <h2
                 style={{
@@ -936,7 +945,7 @@ export default function HomePage() {
 
         {/* FAQ */}
         {activeTab === "faq" && (
-          <div style={{ maxWidth: 780, margin: "0 auto" }}>
+          <div id="section-faq" style={{ maxWidth: 780, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
               <h2
                 style={{

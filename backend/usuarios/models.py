@@ -54,6 +54,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
 
     is_active = models.BooleanField(default=True)
     is_staff  = models.BooleanField(default=False)
+    notifications_enabled = models.BooleanField(default=True)
 
     objects = UsuarioManager()
 
