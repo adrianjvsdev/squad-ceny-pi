@@ -60,7 +60,7 @@ const PAGE_LABELS = {
   settings: "Configurações",
 };
 
-function PageContent({ page, perfil, profile }) {
+function PageContent({ page, perfil, profile, onProfileUpdate }) {
   switch (page) {
     case "overview":
       return <OverviewPage userType={perfil} />;
@@ -73,7 +73,7 @@ function PageContent({ page, perfil, profile }) {
     case "users":
       return <UsersPage />;
     case "settings":
-      return <SettingsPage />;
+      return <SettingsPage onProfileUpdate={onProfileUpdate} />;
     default:
       return <OverviewPage userType={perfil} />;
   }
@@ -86,6 +86,15 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [localProfile, setLocalProfile] = useState(profile);
+
+  useEffect(() => {
+    setLocalProfile(profile);
+  }, [profile]);
+
+  const handleProfileUpdate = useCallback((updatedProfile) => {
+    setLocalProfile(updatedProfile);
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     try {
@@ -177,7 +186,7 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
         menu={menu}
         page={safePage}
         perfil={perfil}
-        profile={profile}
+        profile={localProfile}
         onNavigate={(p) => {
           setPage(p);
           setNotifOpen(false);
@@ -203,7 +212,7 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
           onLogout={onLogout}
         />
         <main style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
-          <PageContent page={safePage} perfil={perfil} profile={profile} />
+          <PageContent page={safePage} perfil={perfil} profile={localProfile} onProfileUpdate={handleProfileUpdate} />
         </main>
       </div>
 

@@ -63,7 +63,6 @@ export function Topbar({
 
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         {[
-          { icon: "search", action: null, label: "Buscar" },
           { icon: "bell", action: onNotifToggle, label: "Notificações" },
           { icon: "logout", action: onLogout, label: "Sair" },
         ].map(({ icon, action, label }, i) => (

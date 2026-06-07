@@ -83,15 +83,15 @@ export function Sidebar({
             flexShrink: 0,
           }}
         >
-          S
+          C
         </span>
         <span
           style={{ fontSize: "0.82rem", fontWeight: 600, color: C.gray900 }}
         >
-          Industrial Dashboard
+          Plataforma CENY
         </span>
         <button
-          onClick={handleToggle} // 👈 era onToggle
+          onClick={handleToggle}
           style={{
             marginLeft: "auto",
             background: "none",

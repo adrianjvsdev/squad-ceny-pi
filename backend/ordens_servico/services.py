@@ -22,7 +22,7 @@ class OrdemServicoService:
             "id_equipamento",
         )
         if usuario.perfil == Usuario.Perfil.ADMIN:
-            return queryset.all()
+            return queryset.filter(id_equipamento__id_setor__id_empresa=usuario.id_empresa)
 
         setores_ids = usuario.usuariosetor_set.values_list("id_setor_id", flat=True)
         if usuario.perfil == Usuario.Perfil.TECNICO:

@@ -56,11 +56,12 @@ class UsuarioSerializer(serializers.ModelSerializer):
             "password",
             "perfil",
             "is_active",
+            "notifications_enabled",
             "data_cadastro",
             "last_login",
             "id_empresa",
         ]
-        read_only_fields = ["id_usuario", "data_cadastro", "last_login"]
+        read_only_fields = ["id_usuario", "data_cadastro", "last_login", "perfil", "id_empresa"]
 
     def create(self, validated_data):
         password = validated_data.pop("password")

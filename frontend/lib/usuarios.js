@@ -12,6 +12,11 @@ export async function getUsuarioAtual() {
   return data;
 }
 
+export async function updateProfile(payload) {
+  const { data } = await api.patch("/api/usuarios/update_profile/", payload);
+  return data;
+}
+
 export async function createUsuario({
   nome,
   email,

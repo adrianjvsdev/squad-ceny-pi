@@ -58,6 +58,16 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     def me(self, request):
         return Response(self.get_serializer(request.user).data)
 
+    @action(detail=False, methods=["put", "patch"], permission_classes=[permissions.IsAuthenticated])
+    def update_profile(self, request):
+        """Ação para o usuário atualizar seu próprio perfil"""
+        user = request.user
+        serializer = self.get_serializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class UsuarioSetorViewSet(viewsets.ModelViewSet):
     serializer_class   = UsuarioSetorSerializer
