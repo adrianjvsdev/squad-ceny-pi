@@ -61,7 +61,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             "last_login",
             "id_empresa",
         ]
-        read_only_fields = ["id_usuario", "data_cadastro", "last_login", "perfil", "id_empresa"]
+        read_only_fields = ["id_usuario", "data_cadastro", "last_login"]
 
     def create(self, validated_data):
         password = validated_data.pop("password")
@@ -75,6 +75,24 @@ class UsuarioSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
         return super().update(instance, validated_data)
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for users to update their own profile (name, email, notifications)"""
+
+    class Meta:
+        model = Usuario
+        fields = [
+            "id_usuario",
+            "nome",
+            "email",
+            "notifications_enabled",
+            "perfil",
+            "id_empresa",
+            "data_cadastro",
+            "last_login",
+        ]
+        read_only_fields = ["id_usuario", "data_cadastro", "last_login", "perfil", "id_empresa"]
 
 
 class UsuarioSetorSerializer(serializers.ModelSerializer):

@@ -50,9 +50,7 @@ class OrdemServicoService:
 
     @staticmethod
     def aprovar(ordem, admin_user, tecnico_id=None):
-        """Aprova uma OS aberta por operador e notifica os envolvidos."""
-        if not OrdemServicoService._requer_aprovacao_admin(ordem):
-            raise ValueError("Esta OS nao requer aprovacao do admin.")
+        """Aprova uma OS aberta e notifica os envolvidos."""
         if ordem.status == OrdemServico.Status.CANCELADA:
             raise ValueError("Esta OS ja foi rejeitada/cancelada.")
         if ordem.status != OrdemServico.Status.ABERTA:
@@ -83,9 +81,7 @@ class OrdemServicoService:
 
     @staticmethod
     def rejeitar(ordem):
-        """Rejeita uma OS aberta por operador e notifica o solicitante."""
-        if not OrdemServicoService._requer_aprovacao_admin(ordem):
-            raise ValueError("Esta OS nao requer aprovacao do admin.")
+        """Rejeita uma OS aberta e notifica o solicitante."""
         if ordem.status == OrdemServico.Status.CANCELADA:
             raise ValueError("Esta OS ja foi rejeitada/cancelada.")
         if ordem.status != OrdemServico.Status.ABERTA:

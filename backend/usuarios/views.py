@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Usuario, UsuarioSetor
-from .serializers import UsuarioSerializer, UsuarioSetorSerializer, RegistroSerializer
+from .serializers import UsuarioSerializer, UsuarioSetorSerializer, RegistroSerializer, ProfileUpdateSerializer
 
 
 class IsAdmin(permissions.BasePermission):
@@ -62,7 +62,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     def update_profile(self, request):
         """Ação para o usuário atualizar seu próprio perfil"""
         user = request.user
-        serializer = self.get_serializer(user, data=request.data, partial=True)
+        serializer = ProfileUpdateSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)

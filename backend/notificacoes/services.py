@@ -14,14 +14,15 @@ class NotificacaoService:
                 f"{tecnico_vinculo.id_usuario.nome}."
             )
 
-        Notificacao.objects.create(
-            id_usuario=ordem.solicitante,
-            id_os=ordem,
-            tipo=Notificacao.Tipo.OS_ATUALIZADA,
-            canal=Notificacao.Canal.PUSH,
-            titulo=f"OS #{ordem.id_os} aprovada",
-            mensagem=mensagem,
-        )
+        if ordem.solicitante is not None:
+            Notificacao.objects.create(
+                id_usuario=ordem.solicitante,
+                id_os=ordem,
+                tipo=Notificacao.Tipo.OS_ATUALIZADA,
+                canal=Notificacao.Canal.PUSH,
+                titulo=f"OS #{ordem.id_os} aprovada",
+                mensagem=mensagem,
+            )
 
         if tecnico_vinculo is not None:
             Notificacao.objects.create(
@@ -36,14 +37,15 @@ class NotificacaoService:
     @staticmethod
     def notificar_rejeicao(ordem):
         """Notifica o solicitante quando uma OS e rejeitada."""
-        Notificacao.objects.create(
-            id_usuario=ordem.solicitante,
-            id_os=ordem,
-            tipo=Notificacao.Tipo.OS_ATUALIZADA,
-            canal=Notificacao.Canal.PUSH,
-            titulo=f"OS #{ordem.id_os} rejeitada",
-            mensagem="Sua ordem de servico foi rejeitada pelo administrador.",
-        )
+        if ordem.solicitante is not None:
+            Notificacao.objects.create(
+                id_usuario=ordem.solicitante,
+                id_os=ordem,
+                tipo=Notificacao.Tipo.OS_ATUALIZADA,
+                canal=Notificacao.Canal.PUSH,
+                titulo=f"OS #{ordem.id_os} rejeitada",
+                mensagem="Sua ordem de servico foi rejeitada pelo administrador.",
+            )
 
     @staticmethod
     def notificar_reabertura(ordem):

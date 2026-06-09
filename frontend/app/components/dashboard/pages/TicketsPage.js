@@ -220,7 +220,6 @@ export function TicketsPage({ userType, profile }) {
 
   const podeAprovarSelecionada =
     userType === "admin" &&
-    selected?.requerAprovacao &&
     selected?.statusRaw === "aberta";
   const podeReabrirSelecionada =
     userType === "admin" &&
