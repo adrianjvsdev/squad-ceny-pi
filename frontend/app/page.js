@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { C, font } from "@/lib/constants";
 import { Btn, Ico, Input, Select } from "@/app/components/ui";
 import { registroRequest } from "@/lib/auth";
+import { maskCnpj, maskTelefone } from "@/lib/masks";
 
 const tabs = [
   { id: "projeto", label: "O Projeto" },
@@ -841,14 +842,14 @@ export default function HomePage() {
                     label="CNPJ"
                     placeholder="00.000.000/0001-00"
                     value={regForm.cnpj}
-                    onChange={(e) => campo("cnpj", e.target.value)}
+                    onChange={(e) => campo("cnpj", maskCnpj(e.target.value))}
                     error={erros.cnpj}
                   />
                   <Input
                     label="Telefone"
                     placeholder="(11) 99999-0000"
                     value={regForm.telefone}
-                    onChange={(e) => campo("telefone", e.target.value)}
+                    onChange={(e) => campo("telefone", maskTelefone(e.target.value))}
                     error={erros.telefone}
                   />
                 </div>

@@ -24,4 +24,5 @@ urlpatterns = [
     path("api/", include("ordens_servico.urls")),
     path("api/", include("manutencao.urls")),
     path("api/", include("notificacoes.urls")),
+    path("api/", include("relatorios.urls")),
 ]

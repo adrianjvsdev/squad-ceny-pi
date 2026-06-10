@@ -8,7 +8,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { TicketsPage } from "./pages/TicketsPage";
 import { UsersPage } from "./pages/UsersPage";
-import { RiskMapPage, SettingsPage } from "./pages/OtherPages";
+import { ReportsPage, RiskMapPage, SettingsPage } from "./pages/OtherPages";
 import {
   getNotifications,
   markAsRead,
@@ -41,6 +41,12 @@ const ALL_MENU = [
     page: "riskmap",
     roles: ["admin", "tecnico", "operador"],
   },
+  {
+    label: "Relatórios",
+    icon: "chart",
+    page: "reports",
+    roles: ["admin", "tecnico"],
+  },
   { label: "Usuários", icon: "users", page: "users", roles: ["admin"] },
   {
     label: "Configurações",
@@ -70,6 +76,8 @@ function PageContent({ page, perfil, profile, onProfileUpdate }) {
       return <InventoryPage userType={perfil} />;
     case "riskmap":
       return <RiskMapPage />;
+    case "reports":
+      return <ReportsPage />;
     case "users":
       return <UsersPage />;
     case "settings":

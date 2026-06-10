@@ -1,4 +1,6 @@
+from django.utils import timezone
 from rest_framework import serializers
+
 from .models import Equipamento, TipoEquipamento
 
 
@@ -41,3 +43,10 @@ class EquipamentoSerializer(serializers.ModelSerializer):
                 "Você não pode adicionar um equipamento a um setor fora da sua empresa."
             )
         return value
+
+    def create(self, validated_data):
+        if not validated_data.get("data_entrada_operacao"):
+            validated_data["data_entrada_operacao"] = timezone.now()
+        if not validated_data.get("status"):
+            validated_data["status"] = Equipamento.Status.ATIVO
+        return super().create(validated_data)

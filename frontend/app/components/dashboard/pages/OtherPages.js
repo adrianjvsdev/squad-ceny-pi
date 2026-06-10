@@ -6,6 +6,12 @@ import { listEquipamentos } from "@/lib/equipamentos";
 import { listOrdensServico } from "@/lib/ordensServico";
 import { buildRiskZones, normalizeApiList } from "@/lib/riskMap";
 import { getSetores } from "@/lib/setores";
+import {
+  confiabilidadeCor,
+  formatHoras,
+  formatPercent,
+  getRelatorioConfiabilidade,
+} from "@/lib/relatorios";
 import { getUsuarioAtual, updateProfile } from "@/lib/usuarios";
 import { Badge, Btn, Ico, Input, IoTBadge } from "@/app/components/ui";
 
@@ -654,104 +660,314 @@ export function RiskMapPage() {
 // ============================================================
 // REPORTS PAGE
 // ============================================================
-export function ReportsPage() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-      <h2
-        style={{
-          margin: 0,
-          fontSize: "1rem",
-          fontWeight: 700,
-          color: C.gray900,
-        }}
-      >
-        Relatórios
-      </h2>
+const PERIODO_OPCOES = [
+  { id: "7", label: "7 dias", dias: 7 },
+  { id: "30", label: "30 dias", dias: 30 },
+  { id: "90", label: "90 dias", dias: 90 },
+  { id: "365", label: "1 ano", dias: 365 },
+];
 
+function periodoParaDatas(dias) {
+  const fim = new Date();
+  const inicio = new Date();
+  inicio.setDate(inicio.getDate() - dias);
+  const fmt = (d) => d.toISOString().slice(0, 10);
+  return { data_inicio: fmt(inicio), data_fim: fmt(fim) };
+}
+
+function KpiCard({ label, value, hint }) {
+  return (
+    <div
+      style={{
+        background: C.white,
+        border: `1px solid ${C.gray200}`,
+        borderRadius: 8,
+        padding: "1rem",
+      }}
+    >
+      <div style={{ fontSize: "0.72rem", color: C.gray400, fontWeight: 600 }}>
+        {label}
+      </div>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          gap: "1rem",
+          fontSize: "1.35rem",
+          fontWeight: 700,
+          color: C.gray900,
+          marginTop: 4,
         }}
       >
-        {[
-          {
-            title: "Produtividade Semanal",
-            desc: "Chamados abertos vs concluídos por período",
-            icon: "chart",
-            color: C.blue,
-          },
-          {
-            title: "Equipamentos por Status",
-            desc: "Distribuição dos equipamentos na planta",
-            icon: "db",
-            color: C.purple,
-          },
-          {
-            title: "Técnicos e Alocação",
-            desc: "Horas trabalhadas por colaborador",
-            icon: "users",
-            color: C.green,
-          },
-          {
-            title: "Manutenções Pendentes",
-            desc: "Equipamentos com manutenção vencida",
-            icon: "alert",
-            color: C.amber,
-          },
-        ].map(({ title, desc, icon, color }) => (
+        {value}
+      </div>
+      {hint && (
+        <div style={{ fontSize: "0.68rem", color: C.gray400, marginTop: 4 }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ReportsPage() {
+  const [periodo, setPeriodo] = useState("30");
+  const [setorId, setSetorId] = useState("");
+  const [setores, setSetores] = useState([]);
+  const [relatorio, setRelatorio] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(null);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    setErro(null);
+    try {
+      const opcao = PERIODO_OPCOES.find((p) => p.id === periodo) ?? PERIODO_OPCOES[1];
+      const params = {
+        ...periodoParaDatas(opcao.dias),
+        ...(setorId ? { setor_id: setorId } : {}),
+      };
+      const dados = await getRelatorioConfiabilidade(params);
+      setRelatorio(dados);
+    } catch (e) {
+      setErro(parseApiError(e, "Nao foi possivel carregar o relatorio."));
+      setRelatorio(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [periodo, setorId]);
+
+  useEffect(() => {
+    getSetores()
+      .then((data) => setSetores(normalizeApiList(data)))
+      .catch(() => setSetores([]));
+  }, []);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  const resumo = relatorio?.resumo;
+  const equipamentos = relatorio?.equipamentos ?? [];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "0.75rem",
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "1rem",
+              fontWeight: 700,
+              color: C.gray900,
+            }}
+          >
+            Relatorios de Confiabilidade
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: "0.78rem", color: C.gray400 }}>
+            MTBF, MTTF (IoT), MTTR e confiabilidade por equipamento
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <select
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+            style={{
+              padding: "0.45rem 0.65rem",
+              borderRadius: 6,
+              border: `1px solid ${C.gray200}`,
+              fontSize: "0.78rem",
+              background: C.white,
+            }}
+          >
+            {PERIODO_OPCOES.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={setorId}
+            onChange={(e) => setSetorId(e.target.value)}
+            style={{
+              padding: "0.45rem 0.65rem",
+              borderRadius: 6,
+              border: `1px solid ${C.gray200}`,
+              fontSize: "0.78rem",
+              background: C.white,
+            }}
+          >
+            <option value="">Todos os setores</option>
+            {setores.map((s) => (
+              <option key={s.id_setor} value={s.id_setor}>
+                {s.nome}
+              </option>
+            ))}
+          </select>
+          <Btn size="sm" onClick={carregar} disabled={loading}>
+            Atualizar
+          </Btn>
+        </div>
+      </div>
+
+      {erro && (
+        <div
+          style={{
+            padding: "0.75rem",
+            background: C.redLight,
+            border: "1px solid #fca5a5",
+            borderRadius: 6,
+            fontSize: "0.78rem",
+            color: C.redDark,
+          }}
+        >
+          {erro}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ color: C.gray400, fontSize: "0.82rem" }}>
+          Carregando relatorio...
+        </div>
+      ) : (
+        <>
           <div
-            key={title}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: "0.75rem",
+            }}
+          >
+            <KpiCard
+              label="MTBF medio"
+              value={formatHoras(resumo?.mtbf_medio_horas)}
+              hint="Tempo operacional / falhas"
+            />
+            <KpiCard
+              label="MTTF medio (IoT)"
+              value={formatHoras(resumo?.mttf_medio_horas)}
+              hint="Falhas preditivas concluidas"
+            />
+            <KpiCard
+              label="MTTR medio"
+              value={formatHoras(resumo?.mttr_medio_horas)}
+              hint="Tempo medio de reparo"
+            />
+            <KpiCard
+              label="Confiabilidade media"
+              value={formatPercent(resumo?.confiabilidade_media_percent)}
+            />
+            <KpiCard label="Total de falhas" value={resumo?.total_falhas ?? 0} />
+            <KpiCard label="Anomalias IoT" value={resumo?.anomalias_iot ?? 0} />
+          </div>
+
+          <div
             style={{
               background: C.white,
               border: `1px solid ${C.gray200}`,
               borderRadius: 8,
-              padding: "1rem",
+              overflow: "hidden",
             }}
           >
             <div
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: 10,
-                background: `${color}15`,
-                display: "grid",
-                placeItems: "center",
-                marginBottom: 12,
+                padding: "0.85rem 1rem",
+                borderBottom: `1px solid ${C.gray100}`,
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: C.gray800,
               }}
             >
-              <Ico name={icon} size={18} color={color} />
+              Equipamentos ({equipamentos.length})
             </div>
-
-            <h3
-              style={{
-                margin: "0 0 0.35rem",
-                fontSize: "0.88rem",
-                fontWeight: 700,
-                color: C.gray900,
-              }}
-            >
-              {title}
-            </h3>
-
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.78rem",
-                color: C.gray500,
-                lineHeight: 1.5,
-              }}
-            >
-              {desc}
-            </p>
-
-            <div style={{ marginTop: "1rem" }}>
-              <Btn size="sm">Gerar relatório</Btn>
-            </div>
+            {equipamentos.length === 0 ? (
+              <div
+                style={{
+                  padding: "2rem",
+                  textAlign: "center",
+                  color: C.gray400,
+                  fontSize: "0.78rem",
+                }}
+              >
+                Nenhum equipamento no periodo selecionado.
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: C.gray50 }}>
+                      {[
+                        "Equipamento",
+                        "Setor",
+                        "Falhas",
+                        "MTBF",
+                        "MTTF",
+                        "MTTR",
+                        "Confiabilidade",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "0.6rem 0.85rem",
+                            textAlign: "left",
+                            fontSize: "0.7rem",
+                            color: C.gray400,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {equipamentos.map((eq) => (
+                      <tr
+                        key={eq.id_equipamento}
+                        style={{ borderTop: `1px solid ${C.gray100}` }}
+                      >
+                        <td style={{ padding: "0.65rem 0.85rem", fontSize: "0.78rem" }}>
+                          <div style={{ fontWeight: 600, color: C.gray800 }}>
+                            {eq.tag}
+                          </div>
+                          <div style={{ fontSize: "0.7rem", color: C.gray400 }}>
+                            {eq.nome}
+                          </div>
+                        </td>
+                        <td style={{ padding: "0.65rem 0.85rem", fontSize: "0.78rem", color: C.gray600 }}>
+                          {eq.setor ?? "—"}
+                        </td>
+                        <td style={{ padding: "0.65rem 0.85rem", fontSize: "0.78rem" }}>
+                          {eq.falhas}
+                        </td>
+                        <td style={{ padding: "0.65rem 0.85rem", fontSize: "0.78rem" }}>
+                          {formatHoras(eq.mtbf_horas)}
+                        </td>
+                        <td style={{ padding: "0.65rem 0.85rem", fontSize: "0.78rem" }}>
+                          {formatHoras(eq.mttf_horas)}
+                        </td>
+                        <td style={{ padding: "0.65rem 0.85rem", fontSize: "0.78rem" }}>
+                          {formatHoras(eq.mttr_horas)}
+                        </td>
+                        <td style={{ padding: "0.65rem 0.85rem" }}>
+                          <Badge color={confiabilidadeCor(eq.confiabilidade_percent)}>
+                            {formatPercent(eq.confiabilidade_percent)}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 }

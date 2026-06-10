@@ -2,6 +2,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
+from equipamentos.models import Equipamento
 from notificacoes.services import NotificacaoService
 from usuarios.models import Usuario
 
@@ -57,12 +58,15 @@ class OrdemServicoService:
             raise ValueError("Apenas OS com status aberta podem ser aprovadas.")
 
         tecnico_vinculo = resolver_tecnico(tecnico_id, admin_user)
+        agora = timezone.now()
         ordem.status = OrdemServico.Status.EM_ANDAMENTO
+        ordem.data_indisponibilidade = agora
+        campos = ["status", "data_indisponibilidade"]
         if tecnico_vinculo is not None:
             ordem.tecnico = tecnico_vinculo
-            ordem.save(update_fields=["status", "tecnico"])
-        else:
-            ordem.save(update_fields=["status"])
+            campos.append("tecnico")
+        ordem.save(update_fields=campos)
+        OrdemServicoService._marcar_equipamento_manutencao(ordem)
 
         NotificacaoService.notificar_aprovacao(ordem, tecnico_vinculo)
         return ordem
@@ -103,6 +107,7 @@ class OrdemServicoService:
 
         ordem.status = OrdemServico.Status.ABERTA
         ordem.data_inicio = None
+        ordem.data_indisponibilidade = None
         ordem.data_fim = None
         ordem.proxima_manutencao = None
         ordem.timestamp_retorno_operacao = None
@@ -110,6 +115,7 @@ class OrdemServicoService:
             update_fields=[
                 "status",
                 "data_inicio",
+                "data_indisponibilidade",
                 "data_fim",
                 "proxima_manutencao",
                 "timestamp_retorno_operacao",
@@ -150,6 +156,7 @@ class OrdemServicoService:
         OrdemServicoService._atualizar_manutencao_equipamento(
             ordem, agora, proxima_manutencao
         )
+        OrdemServicoService._marcar_equipamento_operacional(ordem)
         NotificacaoService.notificar_conclusao(ordem)
         return ordem
 
@@ -196,3 +203,19 @@ class OrdemServicoService:
         equipamento.ultima_manutencao = data_fim
         equipamento.proxima_manutencao = proxima_manutencao
         equipamento.save(update_fields=["ultima_manutencao", "proxima_manutencao"])
+
+    @staticmethod
+    def _marcar_equipamento_manutencao(ordem):
+        if ordem.id_equipamento_id is None:
+            return
+        equipamento = ordem.id_equipamento
+        equipamento.status = Equipamento.Status.EM_MANUTENCAO
+        equipamento.save(update_fields=["status"])
+
+    @staticmethod
+    def _marcar_equipamento_operacional(ordem):
+        if ordem.id_equipamento_id is None:
+            return
+        equipamento = ordem.id_equipamento
+        equipamento.status = Equipamento.Status.ATIVO
+        equipamento.save(update_fields=["status"])
