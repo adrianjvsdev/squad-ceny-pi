@@ -180,15 +180,15 @@ class RegistroTests(BaseTestCase):
         self._post(senha="1")
         self.assertFalse(Empresa.objects.exists())
 
-    # Comportamento atual (bug B3, ainda nao corrigido): e-mail de empresa ja
-    # existente sem usuario correspondente estoura IntegrityError -> 500.
-    def test_email_de_empresa_existente_gera_500(self):
+    def test_email_de_empresa_existente_400(self):
+        # Empresa.email tambem e unico: antes estourava IntegrityError (500).
         empresa = criar_empresa()
         Empresa.objects.filter(pk=empresa.pk).update(email=self.payload["email"])
-        resp = self.cliente(raise_request_exception=False).post(
-            "/api/registro/", self.payload, format="json"
-        )
-        self.assertEqual(resp.status_code, 500)
+        resp = self._post()
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual([str(e) for e in resp.data["email"]], ["E-mail já cadastrado."])
+        self.assertEqual(Empresa.objects.count(), 1)
+        self.assertFalse(Usuario.objects.filter(email=self.payload["email"]).exists())
 
 
 class UsuarioViewSetTests(BaseTestCase):
@@ -238,14 +238,37 @@ class UsuarioViewSetTests(BaseTestCase):
         self.assertEqual(novo.id_empresa, self.c.empresa)
         self.assertTrue(novo.check_password("abc123"))
 
-    # Comportamento atual (bug B2, ainda nao corrigido): sem senha -> KeyError -> 500.
-    def test_criar_sem_senha_gera_500(self):
-        resp = self.cliente(self.c.admin, raise_request_exception=False).post(
+    def test_criar_sem_senha_400(self):
+        # Antes: KeyError em create() -> 500.
+        resp = self.cliente(self.c.admin).post(
             "/api/usuarios/",
             {"nome": "Novo", "email": "novo@teste.com"},
             format="json",
         )
-        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in resp.data["password"]], ["Este campo é obrigatório."]
+        )
+        self.assertFalse(Usuario.objects.filter(email="novo@teste.com").exists())
+
+    def test_criar_com_senha_em_branco_400(self):
+        resp = self.cliente(self.c.admin).post(
+            "/api/usuarios/",
+            {"nome": "Novo", "email": "novo@teste.com", "password": ""},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("password", resp.data)
+
+    def test_atualizar_sem_senha_continua_permitido(self):
+        client = self.cliente(self.c.admin)
+        url = f"/api/usuarios/{self.c.operador.pk}/"
+        put = client.put(
+            url, {"nome": "Via Put", "email": self.c.operador.email}, format="json"
+        )
+        self.assertEqual(put.status_code, 200)
+        patch = client.patch(url, {"nome": "Via Patch"}, format="json")
+        self.assertEqual(patch.status_code, 200)
 
     def test_admin_atualiza_senha(self):
         resp = self.cliente(self.c.admin).patch(

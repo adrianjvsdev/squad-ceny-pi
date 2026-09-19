@@ -18,7 +18,11 @@ class RegistroSerializer(serializers.Serializer):
         return value
 
     def validate_email(self, value):
-        if Usuario.objects.filter(email=value).exists():
+        # O e-mail vira o do usuário e o da empresa; ambos são únicos.
+        if (
+            Usuario.objects.filter(email=value).exists()
+            or Empresa.objects.filter(email=value).exists()
+        ):
             raise serializers.ValidationError("E-mail já cadastrado.")
         return value
 
@@ -62,6 +66,14 @@ class UsuarioSerializer(serializers.ModelSerializer):
             "id_empresa",
         ]
         read_only_fields = ["id_usuario", "data_cadastro", "last_login", "perfil", "id_empresa"]
+
+    def validate(self, attrs):
+        # A senha é opcional só na atualização.
+        if self.instance is None and "password" not in attrs:
+            raise serializers.ValidationError(
+                {"password": self.fields["password"].error_messages["required"]}
+            )
+        return attrs
 
     def create(self, validated_data):
         password = validated_data.pop("password")
