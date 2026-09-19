@@ -13,27 +13,6 @@ class OrdemServicoService:
     """Centraliza as regras de negocio de ordens de servico."""
 
     @staticmethod
-    def listar_para_usuario(usuario):
-        """Retorna as ordens de servico visiveis para o usuario."""
-        queryset = OrdemServico.objects.select_related(
-            "solicitante",
-            "tecnico",
-            "tecnico__id_usuario",
-            "id_equipamento",
-        )
-        if usuario.perfil == Usuario.Perfil.ADMIN:
-            return queryset.filter(id_equipamento__id_setor__id_empresa=usuario.id_empresa)
-
-        setores_ids = usuario.usuariosetor_set.values_list("id_setor_id", flat=True)
-        if usuario.perfil == Usuario.Perfil.TECNICO:
-            return queryset.filter(
-                Q(id_equipamento__id_setor__in=setores_ids)
-                | Q(tecnico__id_usuario=usuario)
-            ).distinct()
-
-        return queryset.filter(id_equipamento__id_setor__in=setores_ids)
-
-    @staticmethod
     def usuario_e_admin(usuario):
         """Informa se o usuario autenticado e administrador."""
         return usuario.is_authenticated and usuario.perfil == Usuario.Perfil.ADMIN
@@ -51,12 +30,7 @@ class OrdemServicoService:
     @staticmethod
     def aprovar(ordem, admin_user, tecnico_id=None):
         """Aprova uma OS aberta por operador e notifica os envolvidos."""
-        if not OrdemServicoService._requer_aprovacao_admin(ordem):
-            raise ValueError("Esta OS nao requer aprovacao do admin.")
-        if ordem.status == OrdemServico.Status.CANCELADA:
-            raise ValueError("Esta OS ja foi rejeitada/cancelada.")
-        if ordem.status != OrdemServico.Status.ABERTA:
-            raise ValueError("Apenas OS com status aberta podem ser aprovadas.")
+        OrdemServicoService._validar_pendente_de_aprovacao(ordem, "aprovadas")
 
         tecnico_vinculo = resolver_tecnico(tecnico_id, admin_user)
         ordem.status = OrdemServico.Status.EM_ANDAMENTO
@@ -84,12 +58,7 @@ class OrdemServicoService:
     @staticmethod
     def rejeitar(ordem):
         """Rejeita uma OS aberta por operador e notifica o solicitante."""
-        if not OrdemServicoService._requer_aprovacao_admin(ordem):
-            raise ValueError("Esta OS nao requer aprovacao do admin.")
-        if ordem.status == OrdemServico.Status.CANCELADA:
-            raise ValueError("Esta OS ja foi rejeitada/cancelada.")
-        if ordem.status != OrdemServico.Status.ABERTA:
-            raise ValueError("Apenas OS com status aberta podem ser rejeitadas.")
+        OrdemServicoService._validar_pendente_de_aprovacao(ordem, "rejeitadas")
 
         ordem.status = OrdemServico.Status.CANCELADA
         ordem.save(update_fields=["status"])
@@ -169,11 +138,14 @@ class OrdemServicoService:
         return cancelaveis.update(status=OrdemServico.Status.CANCELADA)
 
     @staticmethod
-    def _requer_aprovacao_admin(ordem):
-        return (
-            ordem.solicitante is not None
-            and ordem.solicitante.perfil == Usuario.Perfil.OPERADOR
-        )
+    def _validar_pendente_de_aprovacao(ordem, acao):
+        """Garante que a OS aguarda decisao do admin (acao: "aprovadas"/"rejeitadas")."""
+        if not ordem.requer_aprovacao_admin:
+            raise ValueError("Esta OS nao requer aprovacao do admin.")
+        if ordem.status == OrdemServico.Status.CANCELADA:
+            raise ValueError("Esta OS ja foi rejeitada/cancelada.")
+        if ordem.status != OrdemServico.Status.ABERTA:
+            raise ValueError(f"Apenas OS com status aberta podem ser {acao}.")
 
     @staticmethod
     def _normalizar_proxima_manutencao(valor):
