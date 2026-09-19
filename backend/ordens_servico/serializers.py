@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from empresas.validators import validar_mesma_empresa
 from .models import OrdemServico
 
 
@@ -49,6 +50,24 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
             "timestamp_retorno_operacao",
             "solicitante",
         ]
+
+    def validate_id_equipamento(self, value):
+        if value is not None:
+            validar_mesma_empresa(
+                self.context["request"].user,
+                value.empresa_id,
+                "Você não pode usar um equipamento fora da sua empresa.",
+            )
+        return value
+
+    def validate_tecnico(self, value):
+        if value is not None:
+            validar_mesma_empresa(
+                self.context["request"].user,
+                value.id_setor.id_empresa_id,
+                "O técnico atribuído deve pertencer à sua empresa.",
+            )
+        return value
 
     def get_tecnico_usuario_id(self, obj):
         if obj.tecnico_id is None:

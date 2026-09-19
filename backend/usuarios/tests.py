@@ -387,21 +387,44 @@ class UsuarioSetorViewSetTests(BaseTestCase):
         )
         self.assertEqual(resp.status_code, 200)
 
-    # Comportamento atual (S4, ainda nao corrigido): nao ha checagem de empresa
-    # em id_usuario/id_setor, entao o admin vincula usuario de outra empresa.
-    def test_admin_consegue_vincular_usuario_de_outra_empresa(self):
+    def test_nao_vincula_usuario_de_outra_empresa(self):
         resp = self.cliente(self.c.admin).post(
             "/api/usuario-setor/",
             {"id_usuario": self.outra.operador.pk, "id_setor": self.c.setor.pk},
             format="json",
         )
-        self.assertEqual(resp.status_code, 201)
-        self.assertTrue(
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in resp.data["id_usuario"]],
+            ["O usuário deve pertencer à sua empresa."],
+        )
+        self.assertFalse(
             UsuarioSetor.objects.filter(
                 id_usuario=self.outra.operador, id_setor=self.c.setor
             ).exists()
         )
 
+    def test_nao_vincula_a_setor_de_outra_empresa(self):
+        resp = self.cliente(self.c.admin).post(
+            "/api/usuario-setor/",
+            {"id_usuario": self.c.operador.pk, "id_setor": self.outra.setor.pk},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in resp.data["id_setor"]],
+            ["O setor deve pertencer à sua empresa."],
+        )
+
+    def test_nao_move_vinculo_existente_para_outra_empresa(self):
+        resp = self.cliente(self.c.admin).patch(
+            f"/api/usuario-setor/{self.c.vinculo_operador.pk}/",
+            {"id_setor": self.outra.setor.pk},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.c.vinculo_operador.refresh_from_db()
+        self.assertEqual(self.c.vinculo_operador.id_setor, self.c.setor)
 
 class SeedMockDataTests(BaseTestCase):
     def test_seed_e_idempotente_e_cria_dados_de_demo(self):

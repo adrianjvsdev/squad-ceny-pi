@@ -119,6 +119,67 @@ class PlanoManutencaoViewSetTests(BaseTestCase):
         )
         self.assertEqual(resp.status_code, 201)
 
+    def _payload(self, **extra):
+        return {
+            "descricao": "Trocar filtro", "tipo": "preventiva", "periodicidade_dias": 15,
+            "proxima_execucao": "2030-01-01", "id_equipamento": self.c.equipamento.pk,
+            "id_setor": self.c.setor.pk, **extra,
+        }
+
+    def test_criar_com_equipamento_de_outra_empresa_400(self):
+        resp = self.cliente(self.c.admin).post(
+            self.URL,
+            self._payload(id_equipamento=self.outra.equipamento.pk, id_setor=self.outra.setor.pk),
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in resp.data["id_equipamento"]],
+            ["Você não pode usar um equipamento fora da sua empresa."],
+        )
+
+    def test_criar_com_setor_de_outra_empresa_400(self):
+        resp = self.cliente(self.c.admin).post(
+            self.URL, self._payload(id_setor=self.outra.setor.pk), format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in resp.data["id_setor"]],
+            ["Você não pode usar um setor fora da sua empresa."],
+        )
+
+    def test_setor_do_plano_deve_ser_o_do_equipamento(self):
+        msg = ["O setor do plano deve ser o mesmo setor do equipamento."]
+        client = self.cliente(self.c.admin)
+        # setor da mesma empresa, mas diferente do setor do equipamento
+        outro_setor = client.post(
+            self.URL, self._payload(id_setor=self.setor_b.pk), format="json"
+        )
+        self.assertEqual(outro_setor.status_code, 400)
+        self.assertEqual([str(e) for e in outro_setor.data["id_setor"]], msg)
+        # sem setor
+        sem_setor = client.post(self.URL, self._payload(id_setor=None), format="json")
+        self.assertEqual(sem_setor.status_code, 400)
+        self.assertEqual([str(e) for e in sem_setor.data["id_setor"]], msg)
+
+    def test_editar_setor_ou_equipamento_revalida_a_consistencia(self):
+        client = self.cliente(self.c.admin)
+        url = f"{self.URL}{self.p_a.pk}/"
+        self.assertEqual(client.patch(url, {"id_setor": self.setor_b.pk}, format="json").status_code, 400)
+        self.assertEqual(client.patch(url, {"id_equipamento": self.eq_b.pk}, format="json").status_code, 400)
+        # trocar os dois juntos, de forma consistente, funciona
+        ok = client.patch(
+            url, {"id_equipamento": self.eq_b.pk, "id_setor": self.setor_b.pk}, format="json"
+        )
+        self.assertEqual(ok.status_code, 200)
+
+    def test_editar_outros_campos_de_plano_antigo_inconsistente_continua_funcionando(self):
+        antigo = criar_plano(self.c.equipamento, setor=None)  # legado: sem setor
+        resp = self.cliente(self.c.admin).patch(
+            f"{self.URL}{antigo.pk}/", {"descricao": "Ajustada"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200)
+
     def test_periodicidade_zero_400(self):
         resp = self.cliente(self.c.admin).post(
             self.URL,

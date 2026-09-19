@@ -74,6 +74,50 @@ class EquipamentoViewSetTests(BaseTestCase):
         )
         self.assertEqual(resp.data["tipo_nome"], "Bomba")
 
+    def test_id_tipo_de_outra_empresa_400_na_criacao_e_na_edicao(self):
+        tipo_outra = TipoEquipamento.objects.create(nome="X", id_empresa=self.outra.empresa)
+        client = self.cliente(self.c.admin)
+        criar = client.post(
+            "/api/equipamentos/",
+            {"tag": "T-1", "nome": "N", "id_setor": self.c.setor.pk, "id_tipo": tipo_outra.pk},
+            format="json",
+        )
+        self.assertEqual(criar.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in criar.data["id_tipo"]],
+            ["O tipo de equipamento deve pertencer à sua empresa."],
+        )
+        editar = client.patch(
+            f"/api/equipamentos/{self.c.equipamento.pk}/",
+            {"id_tipo": tipo_outra.pk},
+            format="json",
+        )
+        self.assertEqual(editar.status_code, 400)
+
+    def test_id_tipo_da_propria_empresa_e_aceito(self):
+        tipo = TipoEquipamento.objects.create(nome="Ok", id_empresa=self.c.empresa)
+        resp = self.cliente(self.c.admin).patch(
+            f"/api/equipamentos/{self.c.equipamento.pk}/", {"id_tipo": tipo.pk}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["tipo_nome"], "Ok")
+
+    def test_tipo_antigo_sem_empresa_so_e_aceito_se_nao_mudou(self):
+        legado = TipoEquipamento.objects.create(nome="Legado", id_empresa=None)
+        self.c.equipamento.id_tipo = legado
+        self.c.equipamento.save()
+        client = self.cliente(self.c.admin)
+        url = f"/api/equipamentos/{self.c.equipamento.pk}/"
+        # reenviar o mesmo tipo (ex.: PUT completo) continua funcionando
+        mantem = client.patch(url, {"id_tipo": legado.pk, "nome": "Novo nome"}, format="json")
+        self.assertEqual(mantem.status_code, 200)
+        # mas nao da para atribuir um tipo sem empresa a outro equipamento
+        outro = criar_equipamento(self.setor_b)
+        atribui = client.patch(
+            f"/api/equipamentos/{outro.pk}/", {"id_tipo": legado.pk}, format="json"
+        )
+        self.assertEqual(atribui.status_code, 400)
+
     def test_criar_em_setor_da_propria_empresa(self):
         resp = self.cliente(self.c.admin).post(
             "/api/equipamentos/",
