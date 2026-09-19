@@ -1,12 +1,29 @@
+import logging
+
 from django.utils import timezone
 from ordens_servico.models import OrdemServico
-from .models import PlanoManutencao
+
+logger = logging.getLogger(__name__)
+
+
+def calcular_status_geral(anomalias):
+    """Resume as anomalias recentes: "critico", "alerta" ou "normal"."""
+    severidades = {anomalia.severidade for anomalia in anomalias}
+    if "alta" in severidades:
+        return "critico"
+    if "media" in severidades:
+        return "alerta"
+    return "normal"
+
 
 def criar_os_preventiva(plano):
     """
     Cria uma OS preventiva automática baseada no plano.
     """
-    os = OrdemServico.objects.create(
+    # FIXME: `plano.equipamento` nao existe (o campo e `id_equipamento`) e
+    # `ultima_manutencao` nao e campo de PlanoManutencao. Bug conhecido, mantido
+    # aqui para nao alterar comportamento durante a refatoracao.
+    ordem = OrdemServico.objects.create(
         titulo=f"Manutenção Preventiva - {plano.equipamento.nome}",
         descricao=f"Manutenção preventiva automática\n\n{plano.descricao}",
         tipo_manutencao="preventiva",
@@ -19,23 +36,15 @@ def criar_os_preventiva(plano):
     plano.ultima_manutencao = timezone.now()
     plano.save()
     
-    print(f"OS Preventiva criada: #{os.id_os}")
-    return os
+    logger.info("OS Preventiva criada: #%s", ordem.id_os)
+    return ordem
 
 
 def criar_os_preditiva(anomalia):
     """
     Cria uma OS preditiva baseada na anomalia IoT detectada.
     """
-    # Define prioridade por severidade
-    prioridade_map = {
-        "baixa": "baixa",
-        "media": "media",
-        "alta": "alta",
-        "critica": "critica",
-    }
-    
-    os = OrdemServico.objects.create(
+    ordem = OrdemServico.objects.create(
         titulo=f"Manutenção Preditiva - {anomalia.equipamento.nome}",
         descricao=(
             f"Anomalia detectada pelo sistema IoT\n\n"
@@ -45,14 +54,14 @@ def criar_os_preditiva(anomalia):
             f"Severidade: {anomalia.get_severidade_display()}"
         ),
         tipo_manutencao="preditiva",
-        prioridade=prioridade_map.get(anomalia.severidade, "media"),
+        prioridade=anomalia.severidade,  # mesmos valores de Prioridade (baixa/media/alta)
         id_equipamento=anomalia.equipamento,
         solicitante=None,  # Sistema
     )
     
     # Vincula a anomalia à OS criada
-    anomalia.os_gerada = os
+    anomalia.os_gerada = ordem
     anomalia.save()
-    
-    print(f"✅ OS Preditiva criada: #{os.id_os}")
-    return os
+
+    logger.info("OS Preditiva criada: #%s", ordem.id_os)
+    return ordem

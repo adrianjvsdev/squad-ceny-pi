@@ -1,11 +1,13 @@
 from rest_framework import viewsets, permissions, status
-from .models import PlanoManutencao, AnomaliaIoT
-from .serializers import PlanoManutencaoSerializer, AnomaliaIoTSerializer,IoTStatusSerializer
-from rest_framework.decorators import action
 from rest_framework.response import Response
+
 from equipamentos.models import Equipamento
-import random
-from django.utils import timezone
+
+from .iot_Mock import ler_sensores
+from .models import PlanoManutencao, AnomaliaIoT
+from .serializers import PlanoManutencaoSerializer, IoTStatusSerializer
+from .services import calcular_status_geral
+
 
 class PlanoManutencaoViewSet(viewsets.ModelViewSet):
     serializer_class = PlanoManutencaoSerializer
@@ -44,49 +46,28 @@ class IoTStatusViewSet(viewsets.ViewSet):
             )
 
         # se não tiver Iot retorna nulo
-        if not equipamento.tem_iot:
-            return Response({
-                "id_equipamento": equipamento.id_equipamento,
-                "tag": equipamento.tag,
-                "nome": equipamento.nome,
-                "tem_iot": False,
-                "temperatura": None,
-                "rpm": None,
-                "pressao": None,
-                "anomalias_recentes": [],
-                "status_geral": "desabilitado"
-            })
-
-        temperatura = round(random.uniform(20, 100), 1)
-        rpm = round(random.uniform(1000, 3600), 0)
-        pressao = round(random.uniform(2.0, 15.0), 1)
-
-        # Obtém anomalias recentes
-        anomalias_recentes = AnomaliaIoT.objects.filter(
-            equipamento=equipamento
-        ).order_by("-detectada_em")[:10]
-
-        if anomalias_recentes.exists():
-            severidades = [a.severidade for a in anomalias_recentes]
-            if "alta" in severidades:
-                status_geral = "critico"
-            elif "media" in severidades:
-                status_geral = "alerta"
-            else:
-                status_geral = "normal"
-        else:
-            status_geral = "normal"
-
-        data = {
+        dados = {
             "id_equipamento": equipamento.id_equipamento,
             "tag": equipamento.tag,
             "nome": equipamento.nome,
-            "tem_iot": True,
-            "temperatura": temperatura,
-            "rpm": rpm,
-            "pressao": pressao,
-            "anomalias_recentes": AnomaliaIoTSerializer(anomalias_recentes, many=True).data,
-            "status_geral": status_geral
+            "tem_iot": equipamento.tem_iot,
+            "temperatura": None,
+            "rpm": None,
+            "pressao": None,
+            "anomalias_recentes": [],
+            "status_geral": "desabilitado",
         }
 
-        return Response(data)
+        if equipamento.tem_iot:
+            anomalias_recentes = list(
+                AnomaliaIoT.objects.filter(equipamento=equipamento).order_by(
+                    "-detectada_em"
+                )[:10]
+            )
+            dados.update(
+                ler_sensores(),
+                anomalias_recentes=anomalias_recentes,
+                status_geral=calcular_status_geral(anomalias_recentes),
+            )
+
+        return Response(IoTStatusSerializer(dados).data)
