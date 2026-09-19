@@ -1,6 +1,19 @@
 from django.db import models
 from equipamentos.models import Equipamento
 from empresas.models import Setor
+from usuarios.models import Usuario
+
+
+class PlanoManutencaoQuerySet(models.QuerySet):
+    def visiveis_para(self, usuario):
+        """Admin ve os planos dos equipamentos da empresa; os demais, so os
+        planos dos setores em que estao vinculados."""
+        queryset = self.select_related("id_equipamento", "id_setor")
+        if usuario.perfil == Usuario.Perfil.ADMIN:
+            return queryset.filter(id_equipamento__id_setor__id_empresa=usuario.id_empresa)
+
+        setores_ids = usuario.usuariosetor_set.values_list("id_setor_id", flat=True)
+        return queryset.filter(id_setor__in=setores_ids)
 
 
 class PlanoManutencao(models.Model):
@@ -27,6 +40,8 @@ class PlanoManutencao(models.Model):
         related_name="planos_manutencao",
         db_column="id_setor",
     )
+
+    objects = PlanoManutencaoQuerySet.as_manager()
 
     class Meta:
         db_table = "planos_manutencao"
