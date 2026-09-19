@@ -1,4 +1,4 @@
-from config.testutils import BaseTestCase, Cenario, criar_setor
+from config.testutils import BaseTestCase, Cenario, criar_setor, criar_usuario
 from empresas.models import Setor
 
 
@@ -47,25 +47,53 @@ class SetorViewSetTests(BaseTestCase):
 
 
 class EmpresaViewSetTests(BaseTestCase):
-    """Documenta o comportamento atual (S1): qualquer autenticado ve/edita tudo."""
+    URL = "/api/empresas/"
 
     def setUp(self):
         self.c = Cenario()
         self.outra = Cenario()
 
-    def test_qualquer_usuario_lista_todas_as_empresas(self):
-        resp = self.cliente(self.c.operador).get("/api/empresas/")
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(
-            {e["id_empresa"] for e in resp.data},
-            {self.c.empresa.pk, self.outra.empresa.pk},
-        )
+    def test_usuario_lista_so_a_propria_empresa(self):
+        for usuario in (self.c.admin, self.c.tecnico, self.c.operador):
+            resp = self.cliente(usuario).get(self.URL)
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual({e["id_empresa"] for e in resp.data}, {self.c.empresa.pk})
 
-    def test_qualquer_usuario_edita_empresa_de_outro(self):
-        resp = self.cliente(self.c.operador).patch(
-            f"/api/empresas/{self.outra.empresa.pk}/", {"nome": "Hackeada"}, format="json"
+    def test_empresa_de_outro_404_em_leitura_edicao_e_exclusao(self):
+        url = f"{self.URL}{self.outra.empresa.pk}/"
+        client = self.cliente(self.c.admin)
+        self.assertEqual(client.get(url).status_code, 404)
+        self.assertEqual(client.patch(url, {"nome": "Hackeada"}, format="json").status_code, 404)
+        self.assertEqual(client.delete(url).status_code, 404)
+        self.outra.empresa.refresh_from_db()
+        self.assertNotEqual(self.outra.empresa.nome, "Hackeada")
+
+    def test_usuario_le_a_propria_empresa(self):
+        resp = self.cliente(self.c.operador).get(f"{self.URL}{self.c.empresa.pk}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["nome"], self.c.empresa.nome)
+
+    def test_nao_admin_nao_altera_nem_apaga(self):
+        url = f"{self.URL}{self.c.empresa.pk}/"
+        for usuario in (self.c.operador, self.c.tecnico):
+            client = self.cliente(usuario)
+            self.assertEqual(client.patch(url, {"nome": "X"}, format="json").status_code, 403)
+            self.assertEqual(client.delete(url).status_code, 403)
+            self.assertEqual(client.post(self.URL, {}, format="json").status_code, 403)
+
+    def test_admin_edita_a_propria_empresa(self):
+        resp = self.cliente(self.c.admin).patch(
+            f"{self.URL}{self.c.empresa.pk}/", {"nome": "Renomeada"}, format="json"
         )
         self.assertEqual(resp.status_code, 200)
+        self.c.empresa.refresh_from_db()
+        self.assertEqual(self.c.empresa.nome, "Renomeada")
+
+    def test_usuario_sem_empresa_nao_ve_nenhuma(self):
+        sem_empresa = criar_usuario(None)
+        resp = self.cliente(sem_empresa).get(self.URL)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data, [])
 
     def test_sem_autenticacao_401(self):
-        self.assertEqual(self.cliente().get("/api/empresas/").status_code, 401)
+        self.assertEqual(self.cliente().get(self.URL).status_code, 401)

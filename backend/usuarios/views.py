@@ -6,13 +6,9 @@ from rest_framework import status
 from rest_framework.decorators import action
 
 from .models import Usuario, UsuarioSetor
+from .permissions import IsAdmin
 from .serializers import UsuarioSerializer, UsuarioSetorSerializer, RegistroSerializer
 from .token import CenyTokenObtainPairSerializer
-
-
-class IsAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.perfil == "admin"
 
 
 class RegistroView(APIView):

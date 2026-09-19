@@ -1,12 +1,20 @@
 from rest_framework import viewsets, permissions
+from usuarios.permissions import IsAdmin
 from .models import Empresa, Setor
 from .serializers import EmpresaSerializer, SetorSerializer
 
 
 class EmpresaViewSet(viewsets.ModelViewSet):
-    queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        # Qualquer usuário lê a própria empresa; só o admin altera.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated()]
+        return [IsAdmin()]
+
+    def get_queryset(self):
+        return Empresa.objects.filter(pk=self.request.user.id_empresa_id)
 
 
 class SetorViewSet(viewsets.ModelViewSet):
