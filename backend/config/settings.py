@@ -68,11 +68,6 @@ TEMPLATES = [
     },
 ]
 
-AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-    "usuarios.backends.EmailBackend",
-]
-
 WSGI_APPLICATION = "config.wsgi.application"
 
 # ──── Configuração do Banco de Dados ───────────────────────────────────────────────
@@ -80,17 +75,9 @@ DB_ENGINE = os.getenv("DB_ENGINE", "django.db.backends.sqlite3")
 
 DATABASES = {
     "default": {
-        # Essa branch está configurada para o postgresSQL, para voltar ao sqlite basta descomentar as linhas abaixo e comentar as linhas do postgres.
-        # Lembre-se de editar o .env também removendo as variaveis do postgres.
+        # SQLite por padrão; para PostgreSQL defina DB_ENGINE (e DB_NAME/USER/PASSWORD/HOST/PORT) no .env.
         "ENGINE": DB_ENGINE,
         "NAME": os.getenv("DB_NAME", BASE_DIR / "db.sqlite3"),
-        # "ENGINE": os.getenv("DB_ENGINE"),
-        # "NAME": os.getenv("DB_NAME"),
-        # "USER": os.getenv("DB_USER"),
-        # "PASSWORD": os.getenv("DB_PASSWORD"),
-        # "HOST": os.getenv("DB_HOST"),
-        # "PORT": os.getenv("DB_PORT"),
-
     }
 }
 
