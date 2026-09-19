@@ -1,3 +1,6 @@
+import io
+
+from django.core.management import call_command
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from config.testutils import (
@@ -7,12 +10,9 @@ from config.testutils import (
     criar_empresa,
     criar_setor,
     criar_usuario,
-    vincular,
 )
 from empresas.models import Empresa
 from usuarios.models import Usuario, UsuarioSetor
-
-CLAIMS_EXTRAS = ("perfil", "nome", "email", "id_empresa")
 
 
 class LoginJWTTests(BaseTestCase):
@@ -138,6 +138,17 @@ class RegistroTests(BaseTestCase):
             for claim, valor in esperado.items():
                 self.assertEqual(token[claim], valor)
             self.assertEqual(token["user_id"], str(usuario.id_usuario))
+
+    def test_conjunto_exato_de_claims(self):
+        resp = self._post()
+        chaves = {
+            "token_type", "exp", "iat", "jti", "user_id",
+            "perfil", "nome", "email", "id_empresa",
+        }
+        self.assertEqual(set(AccessToken(resp.data["access"]).payload), chaves)
+        self.assertEqual(set(RefreshToken(resp.data["refresh"]).payload), chaves)
+        self.assertEqual(AccessToken(resp.data["access"])["token_type"], "access")
+        self.assertEqual(RefreshToken(resp.data["refresh"])["token_type"], "refresh")
 
     def test_cnpj_duplicado_400(self):
         criar_empresa()
@@ -366,4 +377,26 @@ class UsuarioSetorViewSetTests(BaseTestCase):
             UsuarioSetor.objects.filter(
                 id_usuario=self.outra.operador, id_setor=self.c.setor
             ).exists()
+        )
+
+
+class SeedMockDataTests(BaseTestCase):
+    def test_seed_e_idempotente_e_cria_dados_de_demo(self):
+        from equipamentos.models import Equipamento
+        from notificacoes.models import Notificacao
+        from ordens_servico.models import OrdemServico
+
+        for _ in range(2):
+            call_command("seed_mock_data", "--with-os", stdout=io.StringIO())
+
+        self.assertEqual(Usuario.objects.count(), 3)
+        self.assertEqual(Equipamento.objects.count(), 3)
+        self.assertEqual(OrdemServico.objects.count(), 2)
+        self.assertEqual(Notificacao.objects.count(), 1)
+        self.assertTrue(
+            self.cliente().post(
+                "/api/token/",
+                {"email": "mariafernanda@uspe.com", "password": "123456"},
+                format="json",
+            ).status_code == 200
         )

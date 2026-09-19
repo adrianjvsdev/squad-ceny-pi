@@ -179,7 +179,9 @@ class SignalsAuditoriaTests(BaseTestCase):
         pk = plano.pk
         plano.delete()
 
-        acoes = [a for a, _, _ in self.logs("planos_manutencao")]
+        logs = self.logs("planos_manutencao")
+        self.assertEqual({registro for _, registro, _ in logs}, {pk})
+        acoes = [a for a, _, _ in logs]
         self.assertEqual(
             sorted(acoes),
             sorted([
