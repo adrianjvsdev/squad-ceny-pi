@@ -1,7 +1,10 @@
 import logging
+from datetime import timedelta
 
 from django.utils import timezone
 from ordens_servico.models import OrdemServico
+
+from .models import PlanoManutencao
 
 logger = logging.getLogger(__name__)
 
@@ -16,26 +19,29 @@ def calcular_status_geral(anomalias):
     return "normal"
 
 
-def criar_os_preventiva(plano):
+def criar_os_preventiva(plano: PlanoManutencao) -> OrdemServico:
     """
-    Cria uma OS preventiva automática baseada no plano.
+    Cria uma OS preventiva automática baseada no plano e agenda a próxima
+    execução (hoje + periodicidade), para não gerar outra OS a cada hora
+    enquanto esta estiver aberta.
+
+    A última manutenção do plano só é registrada quando esta OS for de
+    fato concluída (ver OrdemServicoService.concluir), não na abertura.
     """
-    # FIXME: `plano.equipamento` nao existe (o campo e `id_equipamento`) e
-    # `ultima_manutencao` nao e campo de PlanoManutencao. Bug conhecido, mantido
-    # aqui para nao alterar comportamento durante a refatoracao.
+    equipamento = plano.id_equipamento
     ordem = OrdemServico.objects.create(
-        titulo=f"Manutenção Preventiva - {plano.equipamento.nome}",
+        titulo=f"Manutenção Preventiva - {equipamento.nome}",
         descricao=f"Manutenção preventiva automática\n\n{plano.descricao}",
         tipo_manutencao="preventiva",
         prioridade="media",
-        id_equipamento=plano.equipamento,
+        id_equipamento=equipamento,
         solicitante=None,  # Sistema não tem usuário
+        plano_origem=plano,
     )
-    
-    # Atualiza data da última manutenção
-    plano.ultima_manutencao = timezone.now()
-    plano.save()
-    
+
+    plano.proxima_execucao = timezone.localdate() + timedelta(days=plano.periodicidade_dias)
+    plano.save(update_fields=["proxima_execucao"])
+
     logger.info("OS Preventiva criada: #%s", ordem.id_os)
     return ordem
 

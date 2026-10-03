@@ -16,13 +16,14 @@ class PlanoManutencaoSerializer(serializers.ModelSerializer):
             "tipo",
             "periodicidade_dias",
             "proxima_execucao",
+            "ultima_manutencao",
             "id_equipamento",
             "equipamento_tag",
             "equipamento_nome",
             "id_setor",
             "setor_nome",
         ]
-        read_only_fields = ["id_plano"]
+        read_only_fields = ["id_plano", "ultima_manutencao"]
 
     def validate_periodicidade_dias(self, value):
         if value <= 0:

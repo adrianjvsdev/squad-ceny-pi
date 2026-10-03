@@ -40,6 +40,7 @@ class PlanoManutencao(models.Model):
         related_name="planos_manutencao",
         db_column="id_setor",
     )
+    ultima_manutencao = models.DateTimeField(blank=True, null=True)
 
     objects = PlanoManutencaoQuerySet.as_manager()
 

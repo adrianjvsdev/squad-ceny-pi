@@ -123,6 +123,7 @@ class OrdemServicoService:
         OrdemServicoService._atualizar_manutencao_equipamento(
             ordem, agora, proxima_manutencao
         )
+        OrdemServicoService._atualizar_plano_origem(ordem, agora)
         NotificacaoService.notificar_conclusao(ordem)
         return ordem
 
@@ -172,3 +173,13 @@ class OrdemServicoService:
         equipamento.ultima_manutencao = data_fim
         equipamento.proxima_manutencao = proxima_manutencao
         equipamento.save(update_fields=["ultima_manutencao", "proxima_manutencao"])
+
+    @staticmethod
+    def _atualizar_plano_origem(ordem, data_fim):
+        """Registra a conclusao no plano preventivo que gerou esta OS, se houver."""
+        if ordem.plano_origem_id is None:
+            return
+
+        plano = ordem.plano_origem
+        plano.ultima_manutencao = data_fim
+        plano.save(update_fields=["ultima_manutencao"])
