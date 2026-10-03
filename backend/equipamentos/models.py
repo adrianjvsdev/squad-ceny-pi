@@ -1,5 +1,7 @@
 from django.db import models
 from empresas.models import Setor, Empresa
+from usuarios.models import Usuario
+
 
 class TipoEquipamento(models.Model):
     id_tipo = models.AutoField(primary_key=True)
@@ -19,6 +21,16 @@ class TipoEquipamento(models.Model):
 
     def __str__(self):
         return self.nome
+
+
+class EquipamentoQuerySet(models.QuerySet):
+    def visiveis_para(self, usuario):
+        """Admin ve a empresa toda; os demais, so os setores em que estao vinculados."""
+        queryset = self.select_related("id_setor", "id_tipo")
+        if usuario.perfil == Usuario.Perfil.ADMIN:
+            return queryset.filter(id_setor__id_empresa=usuario.id_empresa)
+        setores_ids = usuario.usuariosetor_set.values_list("id_setor_id", flat=True)
+        return queryset.filter(id_setor__in=setores_ids)
 
 
 class Equipamento(models.Model):
@@ -58,6 +70,8 @@ class Equipamento(models.Model):
         db_column="id_tipo",
     )
     tem_iot = models.BooleanField(default=False)
+
+    objects = EquipamentoQuerySet.as_manager()
 
     class Meta:
         db_table = "equipamentos"

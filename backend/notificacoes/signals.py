@@ -10,23 +10,15 @@ Adicione mais conforme necessário.
 
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.contrib.auth import get_user_model
 
 from ordens_servico.models import OrdemServico
 from manutencao.models import PlanoManutencao
 from .models import LogAuditoria
 
-Usuario = get_user_model()
-
-
-def _get_usuario_from_instance(instance):
-    """Tenta extrair o usuário que realizou a ação (requer middleware de request threading)."""
-    # Implemente com django-crum ou similar para capturar o request atual
-    # Por ora retorna None — você pode complementar com sua solução de contexto
-    return None
-
 
 def _registrar_log(tabela, registro_id, acao, usuario=None):
+    # Os receivers não sabem quem executou a ação, então id_usuario fica nulo.
+    # Capturar o usuário exigiria um middleware de request (ex.: django-crum).
     LogAuditoria.objects.create(
         id_usuario=usuario,
         acao=acao,

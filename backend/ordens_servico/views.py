@@ -2,6 +2,9 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from notificacoes.services import NotificacaoService
+
+from .models import OrdemServico
 from .serializers import OrdemServicoSerializer
 from .services import OrdemServicoService
 
@@ -19,7 +22,12 @@ class OrdemServicoViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return OrdemServicoService.listar_para_usuario(self.request.user)
+        return OrdemServico.objects.visiveis_para(self.request.user)
+
+    def perform_create(self, serializer):
+        # Solicitante e sempre o usuario autenticado.
+        ordem = serializer.save(solicitante=self.request.user)
+        NotificacaoService.notificar_abertura(ordem)
 
     def _bad_request(self, erro):
         return Response({"detail": str(erro)}, status=status.HTTP_400_BAD_REQUEST)

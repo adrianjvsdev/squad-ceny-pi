@@ -1,7 +1,16 @@
 import random
-from django.utils import timezone
 from equipamentos.models import Equipamento
 from .models import AnomaliaIoT
+
+
+def ler_sensores():
+    """Simula a leitura instantanea dos sensores de um equipamento."""
+    return {
+        "temperatura": round(random.uniform(20, 100), 1),
+        "rpm": round(random.uniform(1000, 3600), 0),
+        "pressao": round(random.uniform(2.0, 15.0), 1),
+    }
+
 
 def simular_dados_iot():
     """

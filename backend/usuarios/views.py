@@ -4,10 +4,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Usuario, UsuarioSetor
 from .serializers import UsuarioSerializer, UsuarioSetorSerializer, RegistroSerializer
+from .token import CenyTokenObtainPairSerializer
 
 
 class IsAdmin(permissions.BasePermission):
@@ -20,26 +20,16 @@ class RegistroView(APIView):
 
     def post(self, request):
         serializer = RegistroSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
         usuario = serializer.save()
         update_last_login(None, usuario)
 
-        refresh = RefreshToken.for_user(usuario)
-        refresh["perfil"]     = usuario.perfil
-        refresh["nome"]       = usuario.nome
-        refresh["email"]      = usuario.email
-        refresh["id_empresa"] = usuario.id_empresa.id_empresa if usuario.id_empresa else None
-
-        access = refresh.access_token
-        access["perfil"]     = usuario.perfil
-        access["nome"]       = usuario.nome
-        access["email"]      = usuario.email
-        access["id_empresa"] = usuario.id_empresa.id_empresa if usuario.id_empresa else None
+        # Mesmas claims do login; o access herda as claims do refresh.
+        refresh = CenyTokenObtainPairSerializer.get_token(usuario)
 
         return Response(
-            {"access": str(access), "refresh": str(refresh)},
+            {"access": str(refresh.access_token), "refresh": str(refresh)},
             status=status.HTTP_201_CREATED,
         )
 
@@ -63,10 +53,9 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         """Ação para o usuário atualizar seu próprio perfil"""
         user = request.user
         serializer = self.get_serializer(user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UsuarioSetorViewSet(viewsets.ModelViewSet):

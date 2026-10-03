@@ -1,7 +1,32 @@
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from equipamentos.models import Equipamento
+from usuarios.models import Usuario
+
+
+class OrdemServicoQuerySet(models.QuerySet):
+    def visiveis_para(self, usuario):
+        """Admin ve a empresa toda; tecnico ve os seus setores e as OS atribuidas
+        a ele; operador ve so os seus setores."""
+        queryset = self.select_related(
+            "solicitante",
+            "tecnico",
+            "tecnico__id_usuario",
+            "id_equipamento",
+        )
+        if usuario.perfil == Usuario.Perfil.ADMIN:
+            return queryset.filter(id_equipamento__id_setor__id_empresa=usuario.id_empresa)
+
+        setores_ids = usuario.usuariosetor_set.values_list("id_setor_id", flat=True)
+        if usuario.perfil == Usuario.Perfil.TECNICO:
+            return queryset.filter(
+                Q(id_equipamento__id_setor__in=setores_ids)
+                | Q(tecnico__id_usuario=usuario)
+            ).distinct()
+
+        return queryset.filter(id_equipamento__id_setor__in=setores_ids)
 
 
 class OrdemServico(models.Model):
@@ -71,13 +96,39 @@ class OrdemServico(models.Model):
         db_column="id_equipamento",
     )
 
+    objects = OrdemServicoQuerySet.as_manager()
+
     class Meta:
         db_table = "ordens_servico"
         ordering = ["-data_abertura"]
 
     def __str__(self):
         return f"OS#{self.id_os} - {self.titulo}"
-    
+
+    @property
+    def requer_aprovacao_admin(self) -> bool:
+        """Apenas OS aberta por operador precisa passar pelo admin."""
+        return (
+            self.solicitante is not None
+            and self.solicitante.perfil == Usuario.Perfil.OPERADOR
+        )
+
+    @property
+    def origem(self) -> str:
+        """Perfil do solicitante, ou "iot"/"sistema" quando nao ha solicitante."""
+        if self.solicitante is not None:
+            return self.solicitante.perfil
+
+        # IoT = OS sem usuario, em equipamento IoT e de manutencao preditiva.
+        if (
+            self.id_equipamento is not None
+            and self.id_equipamento.tem_iot
+            and self.tipo_manutencao == self.TipoManutencao.PREDITIVA
+        ):
+            return "iot"
+
+        return "sistema"
+
     def clean(self):
         if self.tecnico and self.tecnico.perfil_no_setor != 'tecnico':
             raise ValidationError("O técnico atribuído deve ter perfil 'Técnico' no setor")

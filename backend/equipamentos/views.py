@@ -21,14 +21,4 @@ class EquipamentoViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        usuario = self.request.user
-        if usuario.perfil == "admin":
-            # Admin vê todos os equipamentos da sua empresa
-            return Equipamento.objects.filter(
-                id_setor__id_empresa=usuario.id_empresa
-            ).select_related("id_setor", "id_tipo")
-        # Filtra equipamentos dos setores que o usuário tem acesso
-        setores_ids = usuario.usuariosetor_set.values_list("id_setor_id", flat=True)
-        return Equipamento.objects.select_related("id_setor", "id_tipo").filter(
-            id_setor__in=setores_ids
-        )
+        return Equipamento.objects.visiveis_para(self.request.user)
