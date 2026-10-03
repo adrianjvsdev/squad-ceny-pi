@@ -11,9 +11,11 @@ from config.testutils import (
     criar_usuario,
     vincular,
 )
+from equipamentos.models import Equipamento
 from manutencao.models import PlanoManutencao
 from notificacoes.models import Notificacao
 from ordens_servico.models import OrdemServico
+from ordens_servico.services import OrdemServicoService
 from usuarios.models import Usuario, UsuarioSetor
 
 URL = "/api/ordens-servico/"
@@ -139,7 +141,7 @@ class OrigemTests(OSBase):
         )
         data = self._origem(ordem)
         self.assertEqual(data["origem"], "iot")
-        self.assertFalse(data["requer_aprovacao_admin"])
+        self.assertTrue(data["requer_aprovacao_admin"])  # toda OS aberta aguarda o admin
         self.assertNotIn("solicitante_nome", data)
         self.assertNotIn("solicitante_perfil", data)
 
@@ -153,14 +155,14 @@ class OrigemTests(OSBase):
         self.assertEqual(self._origem(preventiva)["origem"], "sistema")
         self.assertEqual(self._origem(preditiva_sem_iot)["origem"], "sistema")
 
-    def test_requer_aprovacao_apenas_para_solicitante_operador(self):
-        self.assertTrue(self._origem(self.os())["requer_aprovacao_admin"])
-        self.assertFalse(
-            self._origem(self.os(solicitante=self.c.admin))["requer_aprovacao_admin"]
-        )
-        self.assertFalse(
-            self._origem(self.os(solicitante=None))["requer_aprovacao_admin"]
-        )
+    def test_requer_aprovacao_reflete_apenas_o_status_aberta(self):
+        # Toda OS aberta aguarda decisao do admin, independente de quem a abriu.
+        for solicitante in (self.c.operador, self.c.admin, self.c.tecnico, None):
+            self.assertTrue(
+                self._origem(self.os(solicitante=solicitante))["requer_aprovacao_admin"]
+            )
+        nao_aberta = self.os(status="em_andamento")
+        self.assertFalse(self._origem(nao_aberta)["requer_aprovacao_admin"])
 
     def test_tecnico_usuario_id(self):
         ordem = self.os(tecnico=self.c.vinculo_tecnico)
@@ -217,17 +219,32 @@ class CriacaoTests(OSBase):
             )
             self.assertFalse(n.lida)
 
-    def test_admin_abrindo_os_nao_gera_notificacao(self):
+    def test_admin_abrindo_os_requer_aprovacao_mas_nao_se_autonotifica(self):
+        # Com apenas 1 admin na empresa (o proprio solicitante), ninguem mais
+        # para notificar — mas a OS fica igualmente aguardando aprovacao.
         resp = self._criar(self.c.admin)
         self.assertEqual(resp.status_code, 201)
         self.assertFalse(Notificacao.objects.exists())
-        self.assertFalse(resp.data["requer_aprovacao_admin"])
+        self.assertTrue(resp.data["requer_aprovacao_admin"])
         self.assertEqual(resp.data["origem"], "admin")
 
-    def test_tecnico_abrindo_os_nao_gera_notificacao(self):
+    def test_admin_abrindo_os_notifica_outros_admins_da_empresa(self):
+        admin2 = criar_usuario(self.c.empresa, Usuario.Perfil.ADMIN)
+        resp = self._criar(self.c.admin)
+        ordem = OrdemServico.objects.get(pk=resp.data["id_os"])
+        notifs = self.notificacoes(ordem)
+        self.assertEqual({n.id_usuario_id for n in notifs}, {admin2.pk})
+        self.assertEqual(
+            notifs.get().mensagem, f"{self.c.admin.nome} abriu uma OS: Vazamento"
+        )
+
+    def test_tecnico_abrindo_os_requer_aprovacao_e_notifica_admin(self):
         resp = self._criar(self.c.tecnico)
         self.assertEqual(resp.status_code, 201)
-        self.assertFalse(Notificacao.objects.exists())
+        self.assertTrue(resp.data["requer_aprovacao_admin"])
+        n = self.notificacoes(OrdemServico.objects.get(pk=resp.data["id_os"])).get()
+        self.assertEqual(n.id_usuario, self.c.admin)
+        self.assertEqual(n.mensagem, f"{self.c.tecnico.nome} abriu uma OS: Vazamento")
 
     def test_operador_sem_outros_admins_nao_falha(self):
         Usuario.objects.filter(pk=self.c.admin.pk).update(is_active=False)
@@ -315,6 +332,27 @@ class EscopoEmpresaNaEscritaTests(OSBase):
         )
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["tecnico"], self.c.vinculo_tecnico.pk)
+
+    def test_nao_abre_os_para_equipamento_inativo(self):
+        Equipamento.objects.filter(pk=self.c.equipamento.pk).update(status="inativo")
+        resp = self.cliente(self.c.operador).post(
+            URL, self._payload(id_equipamento=self.c.equipamento.pk), format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in resp.data["id_equipamento"]],
+            ["Não é possível abrir uma ordem de serviço para um equipamento inativo."],
+        )
+        self.assertFalse(OrdemServico.objects.exists())
+
+    def test_nao_move_os_para_equipamento_inativo_ao_editar(self):
+        Equipamento.objects.filter(pk=self.c.equipamento.pk).update(status="inativo")
+        outro_equipamento = criar_equipamento(self.c.setor)
+        ordem = self.os(id_equipamento=outro_equipamento)
+        resp = self.cliente(self.c.admin).patch(
+            f"{URL}{ordem.pk}/", {"id_equipamento": self.c.equipamento.pk}, format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
 
 
 class AprovarTests(OSBase):
@@ -409,12 +447,12 @@ class AprovarTests(OSBase):
             resp.data, {"detail": "O tecnico deve pertencer a mesma empresa do admin."}
         )
 
-    def test_os_que_nao_requer_aprovacao_400(self):
-        for solicitante in (self.c.admin, None):
+    def test_aprova_os_aberta_por_admin_tecnico_ou_sistema(self):
+        for solicitante in (self.c.admin, self.c.tecnico, None):
             ordem = self.os(solicitante=solicitante)
             resp = self.patch(self.c.admin, ordem, "aprovar")
-            self.assertEqual(resp.status_code, 400)
-            self.assertEqual(resp.data, {"detail": "Esta OS nao requer aprovacao do admin."})
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.data["status"], "em_andamento")
 
     def test_os_cancelada_400(self):
         ordem = self.os(status="cancelada")
@@ -436,6 +474,31 @@ class AprovarTests(OSBase):
             id_equipamento=self.outra.equipamento, solicitante=self.outra.operador,
         )
         self.assertEqual(self.patch(self.c.admin, ordem, "aprovar").status_code, 404)
+
+    def test_aprovar_marca_equipamento_em_manutencao(self):
+        ordem = self.os()
+        self.assertEqual(self.c.equipamento.status, "ativo")
+        resp = self.patch(self.c.admin, ordem, "aprovar")
+        self.assertEqual(resp.status_code, 200)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "em_manutencao")
+
+    def test_aprovar_nao_sobrescreve_equipamento_inativo(self):
+        # Equipamento marcado inativo depois que a OS ja estava aberta.
+        Equipamento.objects.filter(pk=self.c.equipamento.pk).update(status="inativo")
+        ordem = self.os()
+        resp = self.patch(self.c.admin, ordem, "aprovar")
+        self.assertEqual(resp.status_code, 200)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "inativo")
+
+    def test_aprovar_sem_equipamento_nao_quebra(self):
+        # Via API, o admin nem conseguiria ver essa OS (visiveis_para exige
+        # id_equipamento para o admin); chamando o service direto, testamos
+        # so o guard de "sem equipamento" em _marcar_equipamento_em_manutencao.
+        ordem = self.os(id_equipamento=None)
+        resultado = OrdemServicoService.aprovar(ordem, self.c.admin)
+        self.assertEqual(resultado.status, "em_andamento")
 
 
 class RejeitarTests(OSBase):
@@ -461,7 +524,6 @@ class RejeitarTests(OSBase):
 
     def test_erros_400(self):
         casos = (
-            (self.os(solicitante=self.c.admin), "Esta OS nao requer aprovacao do admin."),
             (self.os(status="cancelada"), "Esta OS ja foi rejeitada/cancelada."),
             (
                 self.os(status="em_andamento"),
@@ -472,6 +534,21 @@ class RejeitarTests(OSBase):
             resp = self.patch(self.c.admin, ordem, "rejeitar")
             self.assertEqual(resp.status_code, 400)
             self.assertEqual(resp.data, {"detail": mensagem})
+
+    def test_rejeita_os_aberta_por_admin_ou_tecnico_e_notifica_o_solicitante(self):
+        for solicitante in (self.c.admin, self.c.tecnico):
+            ordem = self.os(solicitante=solicitante)
+            resp = self.patch(self.c.admin, ordem, "rejeitar")
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.data["status"], "cancelada")
+            n = self.notificacoes(ordem).get()
+            self.assertEqual(n.id_usuario, solicitante)
+
+    def test_rejeita_os_do_sistema_sem_solicitante_nao_notifica_nem_quebra(self):
+        ordem = self.os(solicitante=None)
+        resp = self.patch(self.c.admin, ordem, "rejeitar")
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(self.notificacoes(ordem).exists())
 
 
 class ReabrirTests(OSBase):
@@ -709,6 +786,53 @@ class ConcluirTests(OSBase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(PlanoManutencao.objects.exists())
+
+    def test_conclui_volta_equipamento_para_ativo_quando_nao_ha_outra_os_ativa(self):
+        Equipamento.objects.filter(pk=self.c.equipamento.pk).update(status="em_manutencao")
+        ordem = self.em_andamento()
+        resp = self.patch(
+            self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro()}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "ativo")
+
+    def test_conclui_mantem_em_manutencao_se_outra_os_ainda_ativa(self):
+        Equipamento.objects.filter(pk=self.c.equipamento.pk).update(status="em_manutencao")
+        outra_ordem = self.os(status="em_andamento", tecnico=self.c.vinculo_tecnico)
+        ordem = self.em_andamento()
+
+        resp = self.patch(
+            self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro()}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "em_manutencao")
+
+        # ao concluir a ultima OS ativa, o equipamento finalmente e liberado
+        resp2 = self.patch(
+            self.c.tecnico, outra_ordem, "concluir", {"proxima_manutencao": futuro()}
+        )
+        self.assertEqual(resp2.status_code, 200)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "ativo")
+
+    def test_conclui_nao_reverte_equipamento_inativo(self):
+        Equipamento.objects.filter(pk=self.c.equipamento.pk).update(status="inativo")
+        ordem = self.em_andamento()
+        resp = self.patch(
+            self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro()}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "inativo")
+
+    def test_conclui_sem_equipamento_nao_quebra(self):
+        ordem = self.em_andamento(id_equipamento=None)
+        resp = self.patch(
+            self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro()}
+        )
+        self.assertEqual(resp.status_code, 200)
 
 
 class DesativarAbertasTests(OSBase):

@@ -2,6 +2,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
+from equipamentos.models import Equipamento
 from notificacoes.services import NotificacaoService
 from usuarios.models import Usuario
 
@@ -40,6 +41,7 @@ class OrdemServicoService:
         else:
             ordem.save(update_fields=["status"])
 
+        OrdemServicoService._marcar_equipamento_em_manutencao(ordem)
         NotificacaoService.notificar_aprovacao(ordem, tecnico_vinculo)
         return ordem
 
@@ -124,6 +126,7 @@ class OrdemServicoService:
             ordem, agora, proxima_manutencao
         )
         OrdemServicoService._atualizar_plano_origem(ordem, agora)
+        OrdemServicoService._liberar_equipamento_se_sem_outra_os_ativa(ordem)
         NotificacaoService.notificar_conclusao(ordem)
         return ordem
 
@@ -140,9 +143,9 @@ class OrdemServicoService:
 
     @staticmethod
     def _validar_pendente_de_aprovacao(ordem, acao):
-        """Garante que a OS aguarda decisao do admin (acao: "aprovadas"/"rejeitadas")."""
-        if not ordem.requer_aprovacao_admin:
-            raise ValueError("Esta OS nao requer aprovacao do admin.")
+        """Garante que a OS esta aberta — a unica situacao em que pode ser
+        aprovada ou rejeitada (acao: "aprovadas"/"rejeitadas"), seja ela
+        aberta por operador, tecnico, admin ou pelo sistema."""
         if ordem.status == OrdemServico.Status.CANCELADA:
             raise ValueError("Esta OS ja foi rejeitada/cancelada.")
         if ordem.status != OrdemServico.Status.ABERTA:
@@ -183,3 +186,41 @@ class OrdemServicoService:
         plano = ordem.plano_origem
         plano.ultima_manutencao = data_fim
         plano.save(update_fields=["ultima_manutencao"])
+
+    @staticmethod
+    def _marcar_equipamento_em_manutencao(ordem):
+        """Equipamento entra em manutencao quando a OS e aprovada (em_andamento).
+        Nunca sobrescreve um equipamento marcado manualmente como inativo."""
+        if ordem.id_equipamento_id is None:
+            return
+
+        equipamento = ordem.id_equipamento
+        if equipamento.status == Equipamento.Status.INATIVO:
+            return
+        if equipamento.status != Equipamento.Status.EM_MANUTENCAO:
+            equipamento.status = Equipamento.Status.EM_MANUTENCAO
+            equipamento.save(update_fields=["status"])
+
+    @staticmethod
+    def _liberar_equipamento_se_sem_outra_os_ativa(ordem):
+        """Ao concluir, devolve o equipamento a 'ativo' se nenhuma outra OS
+        (aberta ou em andamento) ainda estiver em curso nele. Nao sobrescreve
+        um equipamento marcado manualmente como inativo."""
+        if ordem.id_equipamento_id is None:
+            return
+
+        equipamento = ordem.id_equipamento
+        if equipamento.status != Equipamento.Status.EM_MANUTENCAO:
+            return
+
+        outra_os_ativa = (
+            OrdemServico.objects.filter(
+                id_equipamento=equipamento,
+                status__in=[OrdemServico.Status.ABERTA, OrdemServico.Status.EM_ANDAMENTO],
+            )
+            .exclude(pk=ordem.pk)
+            .exists()
+        )
+        if not outra_os_ativa:
+            equipamento.status = Equipamento.Status.ATIVO
+            equipamento.save(update_fields=["status"])

@@ -14,8 +14,11 @@ def verificar_manutencoes_preventivas():
     Task que roda a cada hora.
     Verifica quais manutenções preventivas estão vencidas.
     """
-    planos = PlanoManutencao.objects.filter(tipo="preventiva")
-    
+    # Equipamento inativo nao gera OS preventiva automatica.
+    planos = PlanoManutencao.objects.filter(tipo="preventiva").exclude(
+        id_equipamento__status="inativo"
+    )
+
     for plano in planos:
         if plano.proxima_execucao <= timezone.now().date():
             logger.info("Gerando OS Preventiva para %s", plano.id_equipamento.tag)

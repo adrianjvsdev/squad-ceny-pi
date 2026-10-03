@@ -39,7 +39,12 @@ class NotificacaoService:
 
     @staticmethod
     def notificar_abertura(ordem: OrdemServico) -> None:
-        """Avisa os admins da empresa quando um operador abre uma OS."""
+        """Avisa os demais admins da empresa que uma OS esta aguardando decisao.
+
+        So e chamado ao criar uma OS pela API (sempre com solicitante: o
+        usuario autenticado); OS geradas pelo sistema (preventiva/IoT) nao
+        passam por aqui.
+        """
         if not ordem.requer_aprovacao_admin:
             return
 
@@ -65,21 +70,25 @@ class NotificacaoService:
     def notificar_aprovacao(
         ordem: OrdemServico, tecnico_vinculo: UsuarioSetor | None = None
     ) -> None:
-        """Notifica solicitante e tecnico quando uma OS e aprovada."""
-        mensagem = "Sua ordem de servico foi aprovada pelo administrador."
-        if tecnico_vinculo is not None:
-            mensagem = (
-                "Sua ordem de servico foi aprovada e atribuida ao tecnico "
-                f"{tecnico_vinculo.id_usuario.nome}."
-            )
+        """Notifica solicitante e tecnico quando uma OS e aprovada.
 
-        NotificacaoService._criar(
-            ordem.solicitante,
-            ordem,
-            Notificacao.Tipo.OS_ATUALIZADA,
-            f"OS #{ordem.id_os} aprovada",
-            mensagem,
-        )
+        OS geradas pelo sistema (preventiva/IoT) nao tem solicitante.
+        """
+        if ordem.solicitante is not None:
+            mensagem = "Sua ordem de servico foi aprovada pelo administrador."
+            if tecnico_vinculo is not None:
+                mensagem = (
+                    "Sua ordem de servico foi aprovada e atribuida ao tecnico "
+                    f"{tecnico_vinculo.id_usuario.nome}."
+                )
+
+            NotificacaoService._criar(
+                ordem.solicitante,
+                ordem,
+                Notificacao.Tipo.OS_ATUALIZADA,
+                f"OS #{ordem.id_os} aprovada",
+                mensagem,
+            )
 
         if tecnico_vinculo is not None:
             NotificacaoService._criar(
@@ -93,13 +102,14 @@ class NotificacaoService:
     @staticmethod
     def notificar_rejeicao(ordem: OrdemServico) -> None:
         """Notifica o solicitante quando uma OS e rejeitada."""
-        NotificacaoService._criar(
-            ordem.solicitante,
-            ordem,
-            Notificacao.Tipo.OS_ATUALIZADA,
-            f"OS #{ordem.id_os} rejeitada",
-            "Sua ordem de servico foi rejeitada pelo administrador.",
-        )
+        if ordem.solicitante is not None:
+            NotificacaoService._criar(
+                ordem.solicitante,
+                ordem,
+                Notificacao.Tipo.OS_ATUALIZADA,
+                f"OS #{ordem.id_os} rejeitada",
+                "Sua ordem de servico foi rejeitada pelo administrador.",
+            )
 
     @staticmethod
     def notificar_reabertura(ordem: OrdemServico) -> None:

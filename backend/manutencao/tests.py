@@ -363,6 +363,11 @@ class SimularDadosIoTTests(BaseTestCase):
         self.eq.save()
         self.assertEqual(self.simular(99, 100, 15), [])
 
+    def test_ignora_equipamento_inativo(self):
+        self.eq.status = "inativo"
+        self.eq.save()
+        self.assertEqual(self.simular(99, 100, 15), [])
+
 
 class ServicosOSTests(BaseTestCase):
     def setUp(self):
@@ -453,6 +458,16 @@ class TasksTests(BaseTestCase):
         )
         # A ultima manutencao so e registrada quando a OS for concluida.
         self.assertIsNone(plano.ultima_manutencao)
+
+    def test_preventiva_de_equipamento_inativo_nao_gera_os(self):
+        self.c.equipamento.status = "inativo"
+        self.c.equipamento.save()
+        criar_plano(
+            self.c.equipamento,
+            proxima_execucao=timezone.localdate() - timedelta(days=5),
+        )
+        sem_stdout(verificar_manutencoes_preventivas)
+        self.assertFalse(OrdemServico.objects.exists())
 
     def test_preventiva_vencida_ha_muito_tempo_nao_gera_mais_de_uma_os(self):
         criar_plano(
