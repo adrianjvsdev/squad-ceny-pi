@@ -1,10 +1,21 @@
-from rest_framework import viewsets, permissions
+from rest_framework import mixins, viewsets, permissions
 from usuarios.permissions import IsAdmin
 from .models import Empresa, Setor
 from .serializers import EmpresaSerializer, SetorSerializer
 
 
-class EmpresaViewSet(viewsets.ModelViewSet):
+class EmpresaViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    Empresas não têm criação nem exclusão via API: a empresa nasce junto
+    com o admin no registro (/api/registro/) e não há caso de uso para
+    apagá-la por aqui. POST e DELETE respondem 405.
+    """
+
     serializer_class = EmpresaSerializer
 
     def get_permissions(self):

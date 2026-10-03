@@ -1,5 +1,5 @@
 from config.testutils import BaseTestCase, Cenario, criar_setor, criar_usuario
-from empresas.models import Setor
+from empresas.models import Empresa, Setor
 
 
 class SetorViewSetTests(BaseTestCase):
@@ -59,12 +59,11 @@ class EmpresaViewSetTests(BaseTestCase):
             self.assertEqual(resp.status_code, 200)
             self.assertEqual({e["id_empresa"] for e in resp.data}, {self.c.empresa.pk})
 
-    def test_empresa_de_outro_404_em_leitura_edicao_e_exclusao(self):
+    def test_empresa_de_outro_404_em_leitura_e_edicao(self):
         url = f"{self.URL}{self.outra.empresa.pk}/"
         client = self.cliente(self.c.admin)
         self.assertEqual(client.get(url).status_code, 404)
         self.assertEqual(client.patch(url, {"nome": "Hackeada"}, format="json").status_code, 404)
-        self.assertEqual(client.delete(url).status_code, 404)
         self.outra.empresa.refresh_from_db()
         self.assertNotEqual(self.outra.empresa.nome, "Hackeada")
 
@@ -73,13 +72,21 @@ class EmpresaViewSetTests(BaseTestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["nome"], self.c.empresa.nome)
 
-    def test_nao_admin_nao_altera_nem_apaga(self):
+    def test_nao_admin_nao_altera(self):
         url = f"{self.URL}{self.c.empresa.pk}/"
         for usuario in (self.c.operador, self.c.tecnico):
-            client = self.cliente(usuario)
-            self.assertEqual(client.patch(url, {"nome": "X"}, format="json").status_code, 403)
-            self.assertEqual(client.delete(url).status_code, 403)
-            self.assertEqual(client.post(self.URL, {}, format="json").status_code, 403)
+            self.assertEqual(
+                self.cliente(usuario).patch(url, {"nome": "X"}, format="json").status_code,
+                403,
+            )
+
+    def test_criar_e_apagar_nao_existem_nem_para_admin(self):
+        # Empresa nasce no registro; não há endpoint de criação/exclusão.
+        url = f"{self.URL}{self.c.empresa.pk}/"
+        client = self.cliente(self.c.admin)
+        self.assertEqual(client.post(self.URL, {}, format="json").status_code, 405)
+        self.assertEqual(client.delete(url).status_code, 405)
+        self.assertTrue(Empresa.objects.filter(pk=self.c.empresa.pk).exists())
 
     def test_admin_edita_a_propria_empresa(self):
         resp = self.cliente(self.c.admin).patch(
