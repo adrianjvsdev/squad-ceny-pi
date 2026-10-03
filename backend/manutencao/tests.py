@@ -70,12 +70,21 @@ class PlanoManutencaoViewSetTests(BaseTestCase):
         vincular(self.c.operador, self.setor_b, UsuarioSetor.PerfilSetor.VISUALIZADOR)
         self.assertEqual(self.ids(self.c.operador), {self.p_a.pk, self.p_b.pk})
 
-    # Comportamento atual (S3, ainda nao corrigido): admin recebe qs.all(),
-    # inclusive os planos de outras empresas.
-    def test_admin_ve_planos_de_todas_as_empresas(self):
-        self.assertEqual(
-            self.ids(self.c.admin), {self.p_a.pk, self.p_b.pk, self.p_outra.pk}
-        )
+    def test_admin_ve_so_planos_da_propria_empresa(self):
+        self.assertEqual(self.ids(self.c.admin), {self.p_a.pk, self.p_b.pk})
+        self.assertEqual(self.ids(self.outra.admin), {self.p_outra.pk})
+
+    def test_admin_nao_acessa_plano_de_outra_empresa(self):
+        client = self.cliente(self.c.admin)
+        url = f"{self.URL}{self.p_outra.pk}/"
+        self.assertEqual(client.get(url).status_code, 404)
+        self.assertEqual(client.patch(url, {"descricao": "x"}, format="json").status_code, 404)
+        self.assertEqual(client.delete(url).status_code, 404)
+
+    def test_admin_ve_plano_sem_setor_desde_que_o_equipamento_seja_da_empresa(self):
+        sem_setor = criar_plano(self.c.equipamento, setor=None)
+        self.assertIn(sem_setor.pk, self.ids(self.c.admin))
+        self.assertNotIn(sem_setor.pk, self.ids(self.c.operador))
 
     def test_ordenacao_por_proxima_execucao(self):
         self.p_b.proxima_execucao = timezone.localdate() - timedelta(days=1)
@@ -231,10 +240,17 @@ class IoTStatusViewSetTests(BaseTestCase):
         )
         self.assertEqual(anomalias[0]["equipamento_tag"], self.eq_iot.tag)
 
-    # Comportamento atual (S2, ainda nao corrigido): nao ha filtro por empresa.
-    def test_usuario_de_outra_empresa_consegue_consultar(self):
-        resp = self.get(self.eq_iot.pk, usuario=self.outra.operador)
-        self.assertEqual(resp.status_code, 200)
+    def test_usuario_de_outra_empresa_recebe_404(self):
+        for usuario in (self.outra.admin, self.outra.operador):
+            resp = self.get(self.eq_iot.pk, usuario=usuario)
+            self.assertEqual(resp.status_code, 404)
+            self.assertEqual(resp.data, {"detail": "Equipamento não encontrado."})
+
+    def test_nao_admin_sem_vinculo_no_setor_recebe_404(self):
+        outro_setor = criar_setor(self.c.empresa, "Outro")
+        eq = criar_equipamento(outro_setor, tem_iot=True)
+        self.assertEqual(self.get(eq.pk).status_code, 404)  # operador
+        self.assertEqual(self.get(eq.pk, usuario=self.c.admin).status_code, 200)
 
     def test_sem_autenticacao_401(self):
         self.assertEqual(

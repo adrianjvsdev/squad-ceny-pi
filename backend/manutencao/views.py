@@ -14,13 +14,7 @@ class PlanoManutencaoViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        usuario = self.request.user
-        qs = PlanoManutencao.objects.select_related("id_equipamento", "id_setor")
-        if usuario.perfil == "admin":
-            return qs.all()
-
-        setores_ids = usuario.usuariosetor_set.values_list("id_setor_id", flat=True)
-        return qs.filter(id_setor__in=setores_ids)
+        return PlanoManutencao.objects.visiveis_para(self.request.user)
 
 
 class IoTStatusViewSet(viewsets.ViewSet):
@@ -38,7 +32,9 @@ class IoTStatusViewSet(viewsets.ViewSet):
         Incluindo: temperatura, rpm, pressão e anomalias recentes.
         """
         try:
-            equipamento = Equipamento.objects.get(id_equipamento=pk)
+            equipamento = Equipamento.objects.visiveis_para(request.user).get(
+                id_equipamento=pk
+            )
         except Equipamento.DoesNotExist:
             return Response(
                 {"detail": "Equipamento não encontrado."},
