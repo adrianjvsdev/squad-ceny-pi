@@ -95,6 +95,14 @@ class OrdemServico(models.Model):
         related_name="ordens_servico",
         db_column="id_equipamento",
     )
+    plano_origem = models.ForeignKey(
+        "manutencao.PlanoManutencao",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ordens_geradas",
+        db_column="id_plano_origem",
+    )
 
     objects = OrdemServicoQuerySet.as_manager()
 

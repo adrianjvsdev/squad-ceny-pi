@@ -11,6 +11,7 @@ from config.testutils import (
     criar_usuario,
     vincular,
 )
+from manutencao.models import PlanoManutencao
 from notificacoes.models import Notificacao
 from ordens_servico.models import OrdemServico
 from usuarios.models import Usuario, UsuarioSetor
@@ -681,6 +682,33 @@ class ConcluirTests(OSBase):
             self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro()}
         )
         self.assertEqual(resp.status_code, 200)
+
+    def test_conclui_os_preventiva_registra_ultima_manutencao_no_plano(self):
+        plano = PlanoManutencao.objects.create(
+            descricao="Lubrificar", tipo="preventiva", periodicidade_dias=30,
+            proxima_execucao=timezone.localdate() + timedelta(days=30),
+            id_equipamento=self.c.equipamento, id_setor=self.c.setor,
+        )
+        ordem = self.em_andamento(plano_origem=plano)
+
+        resp = self.patch(
+            self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro()}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("plano_origem", resp.data)
+
+        plano.refresh_from_db()
+        ordem.refresh_from_db()
+        self.assertIsNotNone(plano.ultima_manutencao)
+        self.assertEqual(plano.ultima_manutencao, ordem.data_fim)
+
+    def test_conclui_os_sem_plano_origem_nao_toca_em_nenhum_plano(self):
+        ordem = self.em_andamento()
+        resp = self.patch(
+            self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro()}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(PlanoManutencao.objects.exists())
 
 
 class DesativarAbertasTests(OSBase):

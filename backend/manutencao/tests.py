@@ -14,7 +14,7 @@ from config.testutils import (
 )
 from manutencao.iot_Mock import simular_dados_iot
 from manutencao.models import AnomaliaIoT, PlanoManutencao
-from manutencao.services import criar_os_preditiva
+from manutencao.services import criar_os_preditiva, criar_os_preventiva
 from manutencao.tasks import processar_anomalias_iot, verificar_manutencoes_preventivas
 from ordens_servico.models import OrdemServico
 from usuarios.models import UsuarioSetor
@@ -98,11 +98,12 @@ class PlanoManutencaoViewSetTests(BaseTestCase):
             set(resp.data),
             {
                 "id_plano", "descricao", "tipo", "periodicidade_dias",
-                "proxima_execucao", "id_equipamento", "equipamento_tag",
-                "equipamento_nome", "id_setor", "setor_nome",
+                "proxima_execucao", "ultima_manutencao", "id_equipamento",
+                "equipamento_tag", "equipamento_nome", "id_setor", "setor_nome",
             },
         )
         self.assertEqual(resp.data["equipamento_tag"], self.c.equipamento.tag)
+        self.assertIsNone(resp.data["ultima_manutencao"])
 
     def test_criar_plano(self):
         resp = self.cliente(self.c.admin).post(
@@ -394,6 +395,27 @@ class ServicosOSTests(BaseTestCase):
             ordem = sem_stdout(criar_os_preditiva, anomalia)
             self.assertEqual(ordem.prioridade, severidade)
 
+    def test_criar_os_preventiva(self):
+        plano = criar_plano(self.c.equipamento, periodicidade_dias=30)
+        ordem = sem_stdout(criar_os_preventiva, plano)
+
+        self.assertEqual(ordem.titulo, f"Manutenção Preventiva - {self.c.equipamento.nome}")
+        self.assertEqual(
+            ordem.descricao, "Manutenção preventiva automática\n\nLubrificar"
+        )
+        self.assertEqual(ordem.tipo_manutencao, "preventiva")
+        self.assertEqual(ordem.prioridade, "media")
+        self.assertEqual(ordem.id_equipamento, self.c.equipamento)
+        self.assertEqual(ordem.plano_origem, plano)
+        self.assertIsNone(ordem.solicitante)
+        self.assertEqual(ordem.status, "aberta")
+
+        plano.refresh_from_db()
+        self.assertEqual(
+            plano.proxima_execucao, timezone.localdate() + timedelta(days=30)
+        )
+        self.assertIsNone(plano.ultima_manutencao)
+
 
 class TasksTests(BaseTestCase):
     def setUp(self):
@@ -410,16 +432,37 @@ class TasksTests(BaseTestCase):
         self.assertEqual(resultado, "Verificação de manutenções preventivas concluída")
         self.assertFalse(OrdemServico.objects.exists())
 
-    # Comportamento atual (bug B1, ainda nao corrigido): criar_os_preventiva usa
-    # `plano.equipamento`, atributo inexistente (o campo e `id_equipamento`).
-    def test_preventiva_vencida_falha_com_attribute_error(self):
+    def test_preventiva_vencida_gera_os_e_agenda_proxima_execucao(self):
+        plano = criar_plano(
+            self.c.equipamento,
+            periodicidade_dias=30,
+            proxima_execucao=timezone.localdate() - timedelta(days=5),
+        )
+        resultado = sem_stdout(verificar_manutencoes_preventivas)
+        self.assertEqual(resultado, "Verificação de manutenções preventivas concluída")
+
+        ordem = OrdemServico.objects.get()
+        self.assertEqual(ordem.tipo_manutencao, "preventiva")
+        self.assertEqual(ordem.id_equipamento, self.c.equipamento)
+        self.assertEqual(ordem.plano_origem, plano)
+        self.assertIsNone(ordem.solicitante)
+
+        plano.refresh_from_db()
+        self.assertEqual(
+            plano.proxima_execucao, timezone.localdate() + timedelta(days=30)
+        )
+        # A ultima manutencao so e registrada quando a OS for concluida.
+        self.assertIsNone(plano.ultima_manutencao)
+
+    def test_preventiva_vencida_ha_muito_tempo_nao_gera_mais_de_uma_os(self):
         criar_plano(
             self.c.equipamento,
-            proxima_execucao=timezone.localdate() - timedelta(days=1),
+            periodicidade_dias=30,
+            proxima_execucao=timezone.localdate() - timedelta(days=400),
         )
-        with self.assertRaises(AttributeError):
-            sem_stdout(verificar_manutencoes_preventivas)
-        self.assertFalse(OrdemServico.objects.exists())
+        sem_stdout(verificar_manutencoes_preventivas)
+        sem_stdout(verificar_manutencoes_preventivas)
+        self.assertEqual(OrdemServico.objects.count(), 1)
 
     def test_processar_anomalias_cria_os_so_para_media_e_alta_sem_os(self):
         baixa = criar_anomalia(self.c.equipamento, "baixa")
