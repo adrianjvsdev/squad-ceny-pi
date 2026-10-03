@@ -244,6 +244,78 @@ class CriacaoTests(OSBase):
         self.assertIsNone(resp.data["data_inicio"])
 
 
+class EscopoEmpresaNaEscritaTests(OSBase):
+    def _payload(self, **extra):
+        return {"titulo": "Vazamento", "tipo_manutencao": "corretiva", **extra}
+
+    def test_criar_com_equipamento_de_outra_empresa_400(self):
+        resp = self.cliente(self.c.operador).post(
+            URL, self._payload(id_equipamento=self.outra.equipamento.pk), format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in resp.data["id_equipamento"]],
+            ["Você não pode usar um equipamento fora da sua empresa."],
+        )
+        self.assertFalse(OrdemServico.objects.exists())
+        self.assertFalse(Notificacao.objects.exists())
+
+    def test_criar_com_equipamento_sem_setor_400(self):
+        sem_setor = criar_equipamento(None)
+        resp = self.cliente(self.c.operador).post(
+            URL, self._payload(id_equipamento=sem_setor.pk), format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_criar_com_equipamento_da_propria_empresa_ou_sem_equipamento(self):
+        client = self.cliente(self.c.operador)
+        ok = client.post(URL, self._payload(id_equipamento=self.c.equipamento.pk), format="json")
+        self.assertEqual(ok.status_code, 201)
+        sem = client.post(URL, self._payload(), format="json")
+        self.assertEqual(sem.status_code, 201)
+
+    def test_editar_trocando_para_equipamento_de_outra_empresa_400(self):
+        ordem = self.os()
+        resp = self.cliente(self.c.operador).patch(
+            f"{URL}{ordem.pk}/", {"id_equipamento": self.outra.equipamento.pk}, format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        ordem.refresh_from_db()
+        self.assertEqual(ordem.id_equipamento, self.c.equipamento)
+
+    def test_editar_outros_campos_nao_revalida_o_equipamento(self):
+        ordem = self.os()
+        resp = self.cliente(self.c.operador).patch(
+            f"{URL}{ordem.pk}/", {"titulo": "Novo titulo"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_tecnico_de_outra_empresa_no_post_e_no_patch_400(self):
+        client = self.cliente(self.c.admin)
+        criar = client.post(
+            URL, self._payload(tecnico=self.outra.vinculo_tecnico.pk), format="json"
+        )
+        self.assertEqual(criar.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in criar.data["tecnico"]],
+            ["O técnico atribuído deve pertencer à sua empresa."],
+        )
+        ordem = self.os()
+        editar = client.patch(
+            f"{URL}{ordem.pk}/", {"tecnico": self.outra.vinculo_tecnico.pk}, format="json"
+        )
+        self.assertEqual(editar.status_code, 400)
+        ordem.refresh_from_db()
+        self.assertIsNone(ordem.tecnico)
+
+    def test_tecnico_da_propria_empresa_e_aceito(self):
+        resp = self.cliente(self.c.admin).post(
+            URL, self._payload(tecnico=self.c.vinculo_tecnico.pk), format="json"
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data["tecnico"], self.c.vinculo_tecnico.pk)
+
+
 class AprovarTests(OSBase):
     def test_apenas_admin(self):
         ordem = self.os()

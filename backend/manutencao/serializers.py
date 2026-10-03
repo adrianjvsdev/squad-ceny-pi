@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from empresas.validators import validar_mesma_empresa
 from .models import AnomaliaIoT, PlanoManutencao
 
 
@@ -27,6 +28,35 @@ class PlanoManutencaoSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("A periodicidade deve ser maior que zero.")
         return value
+
+    def validate_id_equipamento(self, value):
+        validar_mesma_empresa(
+            self.context["request"].user,
+            value.empresa_id,
+            "Você não pode usar um equipamento fora da sua empresa.",
+        )
+        return value
+
+    def validate_id_setor(self, value):
+        if value is not None:
+            validar_mesma_empresa(
+                self.context["request"].user,
+                value.id_empresa_id,
+                "Você não pode usar um setor fora da sua empresa.",
+            )
+        return value
+
+    def validate(self, attrs):
+        # Só revalida quando equipamento ou setor são enviados, para não travar
+        # a edição de outros campos em planos antigos.
+        if "id_equipamento" in attrs or "id_setor" in attrs:
+            equipamento = attrs.get("id_equipamento", getattr(self.instance, "id_equipamento", None))
+            setor = attrs.get("id_setor", getattr(self.instance, "id_setor", None))
+            if setor is None or equipamento.id_setor_id != setor.pk:
+                raise serializers.ValidationError(
+                    {"id_setor": "O setor do plano deve ser o mesmo setor do equipamento."}
+                )
+        return attrs
 
 
 class AnomaliaIoTSerializer(serializers.ModelSerializer):

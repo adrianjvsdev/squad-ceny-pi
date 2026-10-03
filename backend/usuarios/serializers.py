@@ -2,6 +2,7 @@ from django.db import transaction
 from rest_framework import serializers
 from .models import Usuario, UsuarioSetor
 from empresas.models import Empresa
+from empresas.validators import validar_mesma_empresa
 
 
 class RegistroSerializer(serializers.Serializer):
@@ -105,6 +106,22 @@ class UsuarioSetorSerializer(serializers.ModelSerializer):
             "setor_nome",
             "perfil_no_setor",
         ]
+
+    def validate_id_usuario(self, value):
+        validar_mesma_empresa(
+            self.context["request"].user,
+            value.id_empresa_id,
+            "O usuário deve pertencer à sua empresa.",
+        )
+        return value
+
+    def validate_id_setor(self, value):
+        validar_mesma_empresa(
+            self.context["request"].user,
+            value.id_empresa_id,
+            "O setor deve pertencer à sua empresa.",
+        )
+        return value
 
     def validate(self, data):
         usuario = data.get("id_usuario")

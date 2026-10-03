@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from empresas.validators import validar_mesma_empresa
 from .models import Equipamento, TipoEquipamento
 
 
@@ -39,5 +40,17 @@ class EquipamentoSerializer(serializers.ModelSerializer):
         if value.id_empresa != user.id_empresa:
             raise serializers.ValidationError(
                 "Você não pode adicionar um equipamento a um setor fora da sua empresa."
+            )
+        return value
+
+    def validate_id_tipo(self, value):
+        # Tipos antigos (anteriores à migration 0004) ficaram sem empresa; um
+        # valor que não mudou na edição é aceito para não travar esses registros.
+        inalterado = self.instance is not None and value == self.instance.id_tipo
+        if value is not None and not inalterado:
+            validar_mesma_empresa(
+                self.context["request"].user,
+                value.id_empresa_id,
+                "O tipo de equipamento deve pertencer à sua empresa.",
             )
         return value

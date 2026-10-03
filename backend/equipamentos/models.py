@@ -78,3 +78,8 @@ class Equipamento(models.Model):
 
     def __str__(self):
         return f"{self.tag} - {self.nome}"
+
+    @property
+    def empresa_id(self):
+        """Empresa do equipamento (via setor); None se não tiver setor."""
+        return self.id_setor.id_empresa_id if self.id_setor_id else None
