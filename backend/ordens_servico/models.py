@@ -115,11 +115,11 @@ class OrdemServico(models.Model):
 
     @property
     def requer_aprovacao_admin(self) -> bool:
-        """Apenas OS aberta por operador precisa passar pelo admin."""
-        return (
-            self.solicitante is not None
-            and self.solicitante.perfil == Usuario.Perfil.OPERADOR
-        )
+        """Toda OS aberta aguarda uma decisao do admin (aprovar/rejeitar),
+        independente de quem ou o que a abriu — operador, tecnico, admin ou
+        o sistema (preventiva/IoT). E o que diz ao frontend se deve mostrar
+        as acoes de aprovar/rejeitar."""
+        return self.status == self.Status.ABERTA
 
     @property
     def origem(self) -> str:

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from empresas.validators import validar_mesma_empresa
+from equipamentos.models import Equipamento
 from .models import OrdemServico
 
 
@@ -58,6 +59,10 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
                 value.empresa_id,
                 "Você não pode usar um equipamento fora da sua empresa.",
             )
+            if value.status == Equipamento.Status.INATIVO:
+                raise serializers.ValidationError(
+                    "Não é possível abrir uma ordem de serviço para um equipamento inativo."
+                )
         return value
 
     def validate_tecnico(self, value):

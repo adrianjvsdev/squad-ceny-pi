@@ -17,7 +17,8 @@ def simular_dados_iot():
     Simula leitura de sensores IoT.
     Retorna lista de anomalias detectadas, somente se iot=true.
     """
-    equipamentos = Equipamento.objects.filter(tem_iot=True)
+    # Equipamento inativo nao gera anomalia nem OS automatica.
+    equipamentos = Equipamento.objects.filter(tem_iot=True).exclude(status="inativo")
     anomalias_detectadas = []
     
     for equip in equipamentos:
