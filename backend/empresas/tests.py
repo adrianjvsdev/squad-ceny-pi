@@ -1,3 +1,7 @@
+import io
+
+from django.core.management import call_command
+
 from config.testutils import BaseTestCase, Cenario, criar_setor, criar_usuario
 from empresas.models import Empresa, Setor
 
@@ -104,3 +108,123 @@ class EmpresaViewSetTests(BaseTestCase):
 
     def test_sem_autenticacao_401(self):
         self.assertEqual(self.cliente().get(self.URL).status_code, 401)
+
+
+class VerificarDadosCruzadosTests(BaseTestCase):
+    """O comando e somente leitura: so verifica se ele detecta corretamente
+    dados que a validacao de escrita (S4) passou a impedir, simulando dados
+    antigos via criacao direta no ORM (que pula a validacao do serializer)."""
+
+    def setUp(self):
+        self.c = Cenario()
+        self.outra = Cenario()
+
+    def _rodar(self):
+        saida = io.StringIO()
+        call_command("verificar_dados_cruzados", stdout=saida)
+        return saida.getvalue()
+
+    def test_banco_limpo_nao_reporta_nada(self):
+        saida = self._rodar()
+        self.assertIn("Nenhum registro cruzado entre empresas encontrado.", saida)
+        self.assertNotIn("WARNING", saida)
+
+    def test_detecta_os_com_solicitante_de_outra_empresa(self):
+        from ordens_servico.models import OrdemServico
+
+        ordem = OrdemServico.objects.create(
+            titulo="x", tipo_manutencao="corretiva",
+            id_equipamento=self.c.equipamento, solicitante=self.outra.operador,
+        )
+        saida = self._rodar()
+        self.assertIn(
+            "Ordens de servico: equipamento e solicitante de empresas diferentes: 1", saida
+        )
+        self.assertIn(str(ordem.pk), saida)
+
+    def test_detecta_os_com_tecnico_de_outra_empresa(self):
+        from ordens_servico.models import OrdemServico
+
+        ordem = OrdemServico.objects.create(
+            titulo="x", tipo_manutencao="corretiva",
+            id_equipamento=self.c.equipamento, tecnico=self.outra.vinculo_tecnico,
+        )
+        saida = self._rodar()
+        self.assertIn(
+            "Ordens de servico: equipamento e tecnico de empresas diferentes: 1", saida
+        )
+        self.assertIn(str(ordem.pk), saida)
+
+    def test_detecta_plano_sem_setor_ou_com_setor_diferente_do_equipamento(self):
+        from manutencao.models import PlanoManutencao
+
+        sem_setor = PlanoManutencao.objects.create(
+            descricao="d", tipo="preventiva", periodicidade_dias=30,
+            proxima_execucao="2030-01-01", id_equipamento=self.c.equipamento, id_setor=None,
+        )
+        outro_setor = criar_setor(self.c.empresa)
+        setor_errado = PlanoManutencao.objects.create(
+            descricao="d", tipo="preventiva", periodicidade_dias=30,
+            proxima_execucao="2030-01-01",
+            id_equipamento=self.c.equipamento, id_setor=outro_setor,
+        )
+        saida = self._rodar()
+        self.assertIn(
+            "Planos de manutencao: setor ausente ou diferente do setor do equipamento: 2",
+            saida,
+        )
+        self.assertIn(str(sem_setor.pk), saida)
+        self.assertIn(str(setor_errado.pk), saida)
+
+    def test_detecta_vinculo_usuario_setor_de_empresas_diferentes(self):
+        from usuarios.models import UsuarioSetor
+
+        vinculo = UsuarioSetor.objects.create(
+            id_usuario=self.outra.operador, id_setor=self.c.setor, perfil_no_setor="operador"
+        )
+        saida = self._rodar()
+        self.assertIn(
+            "Vinculos usuario-setor: usuario e setor de empresas diferentes: 1", saida
+        )
+        self.assertIn(str(vinculo.pk), saida)
+
+    def test_detecta_equipamento_com_tipo_de_outra_empresa(self):
+        from equipamentos.models import TipoEquipamento
+
+        tipo_outra = TipoEquipamento.objects.create(nome="X", id_empresa=self.outra.empresa)
+        self.c.equipamento.id_tipo = tipo_outra
+        self.c.equipamento.save()
+        saida = self._rodar()
+        self.assertIn(
+            "Equipamentos: tipo de outra empresa (tipos legados sem empresa sao ignorados): 1",
+            saida,
+        )
+        self.assertIn(str(self.c.equipamento.pk), saida)
+
+    def test_tipo_legado_sem_empresa_nao_e_reportado(self):
+        from equipamentos.models import TipoEquipamento
+
+        legado = TipoEquipamento.objects.create(nome="Legado", id_empresa=None)
+        self.c.equipamento.id_tipo = legado
+        self.c.equipamento.save()
+        saida = self._rodar()
+        self.assertIn(
+            "Equipamentos: tipo de outra empresa (tipos legados sem empresa sao ignorados): 0",
+            saida,
+        )
+
+    def test_total_soma_todas_as_categorias(self):
+        from ordens_servico.models import OrdemServico
+
+        OrdemServico.objects.create(
+            titulo="x", tipo_manutencao="corretiva",
+            id_equipamento=self.c.equipamento, solicitante=self.outra.operador,
+        )
+        from manutencao.models import PlanoManutencao
+
+        PlanoManutencao.objects.create(
+            descricao="d", tipo="preventiva", periodicidade_dias=30,
+            proxima_execucao="2030-01-01", id_equipamento=self.c.equipamento, id_setor=None,
+        )
+        saida = self._rodar()
+        self.assertIn("Total de registros cruzados: 2", saida)
