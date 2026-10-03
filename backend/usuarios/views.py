@@ -7,7 +7,12 @@ from rest_framework.decorators import action
 
 from .models import Usuario, UsuarioSetor
 from .permissions import IsAdmin
-from .serializers import UsuarioSerializer, UsuarioSetorSerializer, RegistroSerializer
+from .serializers import (
+    RegistroSerializer,
+    UsuarioAutoEdicaoSerializer,
+    UsuarioSerializer,
+    UsuarioSetorSerializer,
+)
 from .token import CenyTokenObtainPairSerializer
 
 
@@ -37,6 +42,11 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Usuario.objects.filter(id_empresa=self.request.user.id_empresa)
 
+    def get_serializer_class(self):
+        if self.action == "update_profile":
+            return UsuarioAutoEdicaoSerializer
+        return super().get_serializer_class()
+
     def perform_create(self, serializer):
         serializer.save(id_empresa=self.request.user.id_empresa)  # ← linha adicionada
 
@@ -46,7 +56,8 @@ class UsuarioViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["put", "patch"], permission_classes=[permissions.IsAuthenticated])
     def update_profile(self, request):
-        """Ação para o usuário atualizar seu próprio perfil"""
+        """Ação para o usuário atualizar o próprio perfil (cadastro) — o
+        cargo (Usuario.perfil) não pode ser alterado por aqui."""
         user = request.user
         serializer = self.get_serializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)

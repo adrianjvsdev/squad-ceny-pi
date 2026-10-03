@@ -50,6 +50,10 @@ class RegistroSerializer(serializers.Serializer):
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
+    """Gerenciamento de usuarios pelo admin: ele define o perfil (cargo) de
+    quem cria ou edita. Para o usuario editar o proprio perfil (cargo nao
+    pode ser alterado por ele mesmo), ver UsuarioAutoEdicaoSerializer."""
+
     password = serializers.CharField(write_only=True, required=False)
 
     class Meta:
@@ -66,7 +70,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
             "last_login",
             "id_empresa",
         ]
-        read_only_fields = ["id_usuario", "data_cadastro", "last_login", "perfil", "id_empresa"]
+        read_only_fields = ["id_usuario", "data_cadastro", "last_login", "id_empresa"]
 
     def validate(self, attrs):
         # A senha é opcional só na atualização.
@@ -88,6 +92,14 @@ class UsuarioSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
         return super().update(instance, validated_data)
+
+
+class UsuarioAutoEdicaoSerializer(UsuarioSerializer):
+    """Usada em update_profile: o usuario edita a si mesmo, mas nao pode
+    alterar o proprio perfil (cargo) — isso e privilegio exclusivo do admin."""
+
+    class Meta(UsuarioSerializer.Meta):
+        read_only_fields = UsuarioSerializer.Meta.read_only_fields + ["perfil"]
 
 
 class UsuarioSetorSerializer(serializers.ModelSerializer):

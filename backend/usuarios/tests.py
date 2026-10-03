@@ -219,24 +219,56 @@ class UsuarioViewSetTests(BaseTestCase):
         resp = self.cliente(self.c.admin).get(f"/api/usuarios/{self.outra.admin.pk}/")
         self.assertEqual(resp.status_code, 404)
 
-    def test_admin_cria_usuario_na_propria_empresa_como_operador(self):
+    def test_admin_cria_usuario_com_o_perfil_escolhido(self):
+        for perfil in ("admin", "tecnico", "operador"):
+            resp = self.cliente(self.c.admin).post(
+                "/api/usuarios/",
+                {
+                    "nome": "Novo",
+                    "email": f"novo-{perfil}@teste.com",
+                    "password": "abc123",
+                    "perfil": perfil,
+                },
+                format="json",
+            )
+            self.assertEqual(resp.status_code, 201)
+            self.assertEqual(resp.data["perfil"], perfil)
+            novo = Usuario.objects.get(email=f"novo-{perfil}@teste.com")
+            self.assertEqual(novo.perfil, perfil)
+            self.assertTrue(novo.check_password("abc123"))
+
+    def test_admin_cria_usuario_sem_perfil_cai_no_default_operador(self):
+        resp = self.cliente(self.c.admin).post(
+            "/api/usuarios/",
+            {"nome": "Novo", "email": "novo@teste.com", "password": "abc123"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data["perfil"], "operador")
+
+    def test_admin_edita_o_perfil_de_outro_usuario(self):
+        resp = self.cliente(self.c.admin).patch(
+            f"/api/usuarios/{self.c.operador.pk}/", {"perfil": "tecnico"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.c.operador.refresh_from_db()
+        self.assertEqual(self.c.operador.perfil, Usuario.Perfil.TECNICO)
+
+    def test_admin_nao_move_usuario_para_outra_empresa_na_criacao(self):
+        # id_empresa continua read_only: sempre a empresa do admin autenticado.
         resp = self.cliente(self.c.admin).post(
             "/api/usuarios/",
             {
                 "nome": "Novo",
                 "email": "novo@teste.com",
                 "password": "abc123",
-                "perfil": "admin",  # read_only: deve ser ignorado
-                "id_empresa": self.outra.empresa.pk,  # read_only: idem
+                "id_empresa": self.outra.empresa.pk,
             },
             format="json",
         )
         self.assertEqual(resp.status_code, 201)
-        self.assertNotIn("password", resp.data)
         novo = Usuario.objects.get(email="novo@teste.com")
-        self.assertEqual(novo.perfil, Usuario.Perfil.OPERADOR)
         self.assertEqual(novo.id_empresa, self.c.empresa)
-        self.assertTrue(novo.check_password("abc123"))
 
     def test_criar_sem_senha_400(self):
         # Antes: KeyError em create() -> 500.
