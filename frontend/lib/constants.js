@@ -186,6 +186,26 @@ export const Icons = {
       <line x1="12" y1="8" x2="12.01" y2="8" />
     </>
   ),
+  sparkle: (
+    <path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z" />
+  ),
+};
+
+// Mesmos valores de OrdemServico.Prioridade no backend, em ordem crescente.
+export const PRIORIDADE_LABELS = {
+  baixa: "Baixa",
+  media: "Média",
+  alta: "Alta",
+  critica: "Crítica",
+};
+
+// Mesmos valores de TriagemIA.TipoProblema no backend.
+export const TIPO_PROBLEMA_LABELS = {
+  mecanico: "Mecânico",
+  eletrico: "Elétrico",
+  hidraulico: "Hidráulico",
+  software: "Software",
+  outro: "Outro",
 };
 
 // ============================================================

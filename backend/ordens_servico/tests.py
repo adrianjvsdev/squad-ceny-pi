@@ -26,7 +26,7 @@ CAMPOS_OS = {
     "relatorio_intervencao", "timestamp_retorno_operacao", "solicitante",
     "solicitante_nome", "solicitante_perfil", "tecnico", "tecnico_usuario_id",
     "id_equipamento", "equipamento_tag", "equipamento_nome", "origem",
-    "requer_aprovacao_admin",
+    "requer_aprovacao_admin", "triagem_ia",
 }
 
 
