@@ -159,6 +159,12 @@ export const Icons = {
       <circle cx="12" cy="12" r="3" />
     </>
   ),
+  power: (
+    <>
+      <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+      <line x1="12" y1="2" x2="12" y2="12" />
+    </>
+  ),
   logout: (
     <>
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

@@ -173,6 +173,7 @@ export function InventoryPage({ userType }) {
   });
   const [salvandoEquip, setSalvandoEquip] = useState(false);
   const [erroEquip, setErroEquip] = useState(null);
+  const [alterandoStatusId, setAlterandoStatusId] = useState(null);
 
   // Form tipo de equipamento
   const [formTipo, setFormTipo] = useState({
@@ -364,6 +365,41 @@ export function InventoryPage({ userType }) {
     }
   }
 
+  async function handleAlternarAtivo(equip) {
+    const desativar = equip.statusBackend !== "inativo";
+    const mensagem = desativar
+      ? `Desativar "${equip.name}"? Ele deixará de gerar ordens preventivas e alertas IoT, e não poderá receber novas ordens de serviço.`
+      : `Reativar "${equip.name}"?`;
+    if (!confirm(mensagem)) return;
+
+    setAlterandoStatusId(equip.id_equipamento);
+    try {
+      const atualizado = await equipamentosAPI.atualizarEquipamento(
+        equip.id_equipamento,
+        { status: desativar ? "inativo" : "ativo" },
+      );
+      // Atualiza só a linha alterada: recarregar a lista refaria as buscas de
+      // manutenção e IoT de todos os equipamentos.
+      setEquipamentos((prev) =>
+        prev.map((e) =>
+          e.id_equipamento === atualizado.id_equipamento
+            ? {
+                ...e,
+                status: equipamentosAPI.mapStatusBackendParaUI(
+                  atualizado.status,
+                ),
+                statusBackend: atualizado.status,
+              }
+            : e,
+        ),
+      );
+    } catch {
+      alert(`Erro ao ${desativar ? "desativar" : "reativar"} equipamento.`);
+    } finally {
+      setAlterandoStatusId(null);
+    }
+  }
+
   // ─── Handlers tipo de equipamento ──────────────────────────────────────────
 
   function abrirModalTipo() {
@@ -516,7 +552,7 @@ export function InventoryPage({ userType }) {
             }}
           />
         </div>
-        {["all", "Operacional", "Em Manutenção", "Offline"].map((s) => (
+        {["all", "Operacional", "Em Manutenção", "Inativo"].map((s) => (
           <button
             key={s}
             onClick={() => setFilterStatus(s)}
@@ -668,14 +704,35 @@ export function InventoryPage({ userType }) {
                     {eq.lastMaint}
                   </td>
                   <td style={{ padding: "0.75rem 1rem" }}>
-                    <Btn
-                      size="sm"
-                      variant="ghost"
-                      icon="eye"
-                      onClick={() => setSelectedEquip(eq)}
+                    <div
+                      style={{ display: "flex", gap: 6, whiteSpace: "nowrap" }}
                     >
-                      Ver
-                    </Btn>
+                      <Btn
+                        size="sm"
+                        variant="ghost"
+                        icon="eye"
+                        onClick={() => setSelectedEquip(eq)}
+                      >
+                        Ver
+                      </Btn>
+                      {userType === "admin" && (
+                        <Btn
+                          size="sm"
+                          variant={
+                            eq.statusBackend === "inativo"
+                              ? "secondary"
+                              : "ghost"
+                          }
+                          icon="power"
+                          onClick={() => handleAlternarAtivo(eq)}
+                          disabled={alterandoStatusId === eq.id_equipamento}
+                        >
+                          {eq.statusBackend === "inativo"
+                            ? "Reativar"
+                            : "Desativar"}
+                        </Btn>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
