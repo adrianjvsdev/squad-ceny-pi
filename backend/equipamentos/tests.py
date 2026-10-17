@@ -5,7 +5,7 @@ from config.testutils import (
     criar_setor,
     vincular,
 )
-from equipamentos.models import TipoEquipamento
+from equipamentos.models import Equipamento, TipoEquipamento
 from usuarios.models import UsuarioSetor
 
 
@@ -159,8 +159,45 @@ class EquipamentoViewSetTests(BaseTestCase):
         self.assertEqual(self.c.equipamento.nome, "Renomeado")
         self.assertIsNone(self.c.equipamento.proxima_manutencao)
 
+    def test_nao_admin_le_mas_nao_escreve(self):
+        url = f"/api/equipamentos/{self.c.equipamento.pk}/"
+        novo = {"tag": "NAO-ADMIN", "nome": "X", "id_setor": self.c.setor.pk}
+        for usuario in (self.c.operador, self.c.tecnico):
+            client = self.cliente(usuario)
+            self.assertEqual(client.get(url).status_code, 200)
+            self.assertEqual(
+                client.post("/api/equipamentos/", novo, format="json").status_code, 403
+            )
+            self.assertEqual(
+                client.patch(url, {"status": "inativo"}, format="json").status_code, 403
+            )
+            self.assertEqual(client.put(url, novo, format="json").status_code, 403)
+            self.assertEqual(client.delete(url).status_code, 403)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "ativo")
+        self.assertFalse(Equipamento.objects.filter(tag="NAO-ADMIN").exists())
+
+    def test_admin_desativa_e_reativa(self):
+        url = f"/api/equipamentos/{self.c.equipamento.pk}/"
+        client = self.cliente(self.c.admin)
+        resp = client.patch(url, {"status": "inativo"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["status"], "inativo")
+        resp = client.patch(url, {"status": "ativo"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "ativo")
+
+    def test_admin_exclui(self):
+        resp = self.cliente(self.c.admin).delete(f"/api/equipamentos/{self.eq_b.pk}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(Equipamento.objects.filter(pk=self.eq_b.pk).exists())
+
     def test_sem_autenticacao_401(self):
         self.assertEqual(self.cliente().get("/api/equipamentos/").status_code, 401)
+        self.assertEqual(
+            self.cliente().post("/api/equipamentos/", {}, format="json").status_code, 401
+        )
 
 
 class TipoEquipamentoViewSetTests(BaseTestCase):
