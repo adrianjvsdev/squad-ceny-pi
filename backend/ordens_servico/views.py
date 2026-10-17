@@ -1,12 +1,26 @@
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 
 from notificacoes.services import NotificacaoService
 
 from .models import OrdemServico
-from .serializers import OrdemServicoSerializer
+from .serializers import (
+    EquipamentoTriagemSerializer,
+    OrdemServicoSerializer,
+    TriagemResultadoSerializer,
+    TriagemTextoSerializer,
+)
 from .services import OrdemServicoService
+from .triagem_ia import (
+    EquipamentoAmbiguo,
+    EquipamentoNaoIdentificado,
+    RespostaIAInvalida,
+    TriagemIAErro,
+    interpretar_texto,
+)
 
 
 MSG_APROVAR_ADMIN = "Apenas administradores podem aprovar ordens de servico."
@@ -22,7 +36,9 @@ class OrdemServicoViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return OrdemServico.objects.visiveis_para(self.request.user)
+        return OrdemServico.objects.visiveis_para(self.request.user).select_related(
+            "triagem_ia"
+        )
 
     def perform_create(self, serializer):
         # Solicitante e sempre o usuario autenticado.
@@ -105,3 +121,39 @@ class OrdemServicoViewSet(viewsets.ModelViewSet):
             {"status": "ok", "ordens_desativadas": afetadas},
             status=status.HTTP_200_OK,
         )
+
+
+class TriagemIAPreviewView(APIView):
+    """Interpreta um relato livre e devolve a triagem para revisao.
+
+    Nunca cria a OS: o usuario revisa e confirma pelo POST
+    /api/ordens-servico/, reenviando a triagem no bloco opcional triagem_ia.
+    Mesma permissao de quem abre OS hoje (qualquer usuario autenticado), com
+    limite por usuario para respeitar a cota do Gemini.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "triagem_ia"
+
+    def post(self, request):
+        entrada = TriagemTextoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        try:
+            resultado = interpretar_texto(entrada.validated_data["texto"], request.user)
+        except TriagemIAErro as erro:
+            return self._erro(erro)
+        return Response(TriagemResultadoSerializer(resultado).data, status=status.HTTP_200_OK)
+
+    def _erro(self, erro):
+        corpo = {"detail": str(erro), "codigo": erro.codigo}
+        if isinstance(erro, EquipamentoAmbiguo):
+            corpo["candidatos"] = EquipamentoTriagemSerializer(erro.candidatos, many=True).data
+
+        if isinstance(erro, (EquipamentoNaoIdentificado, EquipamentoAmbiguo)):
+            codigo_http = status.HTTP_400_BAD_REQUEST
+        elif isinstance(erro, RespostaIAInvalida):
+            codigo_http = status.HTTP_502_BAD_GATEWAY
+        else:  # IAIndisponivel / LimiteIAAtingido
+            codigo_http = status.HTTP_503_SERVICE_UNAVAILABLE
+        return Response(corpo, status=codigo_http)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { C } from "@/lib/constants";
+import { C, PRIORIDADE_LABELS } from "@/lib/constants";
 import { listEquipamentos } from "@/lib/equipamentos";
 import { getSetores } from "@/lib/setores";
 import { getUsuarioSetores } from "@/lib/usuarios";
@@ -16,13 +16,11 @@ import {
   rejeitarOrdemServico,
 } from "@/lib/ordensServico";
 import { Badge, Btn, Input, Modal, Select } from "@/app/components/ui";
-
-const PRIORIDADE_LABELS = {
-  baixa: "Baixa",
-  media: "Média",
-  alta: "Alta",
-  critica: "Crítica",
-};
+import {
+  ResumoTriagemIA,
+  SeletorModoCriacao,
+  TriagemIAChamado,
+} from "@/app/components/dashboard/TriagemIAChamado";
 
 const STATUS_LABELS = {
   aberta: "Planejado",
@@ -58,6 +56,7 @@ function parseApiError(error, fallback) {
 
 export function TicketsPage({ userType, profile }) {
   const [showModal, setShowModal] = useState(false);
+  const [modoCriacao, setModoCriacao] = useState("ia");
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({
     equip: "",
@@ -113,6 +112,8 @@ export function TicketsPage({ userType, profile }) {
           tipo: TIPO_LABELS[ticket.tipo_manutencao] ?? ticket.tipo_manutencao,
           urgencia:
             PRIORIDADE_LABELS[ticket.prioridade] ?? ticket.prioridade ?? "Baixa",
+          prioridadeRaw: ticket.prioridade,
+          triagemIA: ticket.triagem_ia ?? null,
           statusRaw: ticket.status,
           status:
             ticket.status === "em_andamento" && atendimentoIniciado
@@ -277,6 +278,27 @@ export function TicketsPage({ userType, profile }) {
     }
   }
 
+  function abrirModalCriacao() {
+    setModoCriacao("ia");
+    setErroForm(null);
+    setShowModal(true);
+  }
+
+  async function handleCriadoPorIA() {
+    setShowModal(false);
+    await carregarChamados();
+  }
+
+  // IA indisponivel: segue no formulario manual aproveitando o texto digitado.
+  function handlePreencherManual(texto) {
+    setForm((f) => ({
+      ...f,
+      desc: texto || f.desc,
+      tipo: f.tipo || "corretiva",
+    }));
+    setModoCriacao("manual");
+  }
+
   async function handleAprovarSelecionada() {
     if (!selected?.id_os) return;
     setErroAprovacao(null);
@@ -420,7 +442,7 @@ export function TicketsPage({ userType, profile }) {
               {processandoLote ? "Desativando..." : "Desativar OS Abertas"}
             </Btn>
           )}
-          <Btn onClick={() => setShowModal(true)} icon="plus">
+          <Btn onClick={abrirModalCriacao} icon="plus">
             Criar Chamado
           </Btn>
         </div>
@@ -575,6 +597,7 @@ export function TicketsPage({ userType, profile }) {
                     </span>
                     <Badge color={urgColor(ticket.urgencia)}>Urgência: {ticket.urgencia}</Badge>
                     <Badge color={statusColor(ticket.status)}>{ticket.status}</Badge>
+                    {ticket.triagemIA && <Badge color="purple">Triagem IA</Badge>}
                   </div>
                   <div style={{ fontWeight: 600, color: C.gray800, fontSize: "0.88rem", marginBottom: 2 }}>
                     {ticket.equip} — {ticket.tipo}
@@ -632,6 +655,12 @@ export function TicketsPage({ userType, profile }) {
               <div style={{ fontSize: "0.68rem", fontWeight: 600, color: C.gray400, marginBottom: 6 }}>DESCRIÇÃO</div>
               <p style={{ margin: 0, fontSize: "0.85rem", color: C.gray700, lineHeight: 1.6 }}>{selected.desc}</p>
             </div>
+            {selected.triagemIA && (
+              <ResumoTriagemIA
+                triagem={selected.triagemIA}
+                prioridadeFinal={selected.prioridadeRaw}
+              />
+            )}
             {erroAprovacao && (
               <p style={{ margin: 0, fontSize: "0.78rem", color: C.redDark }}>
                 {erroAprovacao}
@@ -743,7 +772,18 @@ export function TicketsPage({ userType, profile }) {
       </Modal>
 
       {/* Create Ticket Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="Criar Novo Chamado" width={560}>
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Criar Novo Chamado" width={600}>
+        <div style={{ marginBottom: "1rem" }}>
+          <SeletorModoCriacao modo={modoCriacao} onChange={setModoCriacao} />
+        </div>
+        {modoCriacao === "ia" ? (
+          <TriagemIAChamado
+            equipamentos={equipamentos}
+            onCriado={handleCriadoPorIA}
+            onCancelar={() => setShowModal(false)}
+            onPreencherManual={handlePreencherManual}
+          />
+        ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
             <Select
@@ -828,6 +868,7 @@ export function TicketsPage({ userType, profile }) {
             </Btn>
           </div>
         </div>
+        )}
       </Modal>
     </div>
   );

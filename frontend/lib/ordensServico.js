@@ -10,6 +10,13 @@ export async function criarOrdemServico(payload) {
   return data;
 }
 
+// Preview da triagem por IA: interpreta o texto livre e devolve a triagem para
+// revisao. Nao cria a OS — a confirmacao e feita por criarOrdemServico.
+export async function triarOrdemServico(texto) {
+  const { data } = await api.post("/api/ordens-servico/triagem-ia/", { texto });
+  return data;
+}
+
 export async function aprovarOrdemServico(idOs, payload = {}) {
   const { data } = await api.patch(`/api/ordens-servico/${idOs}/aprovar/`, payload);
   return data;

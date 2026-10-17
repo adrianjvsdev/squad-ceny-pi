@@ -117,7 +117,18 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    # Sem throttle global: só as views com throttle_scope usam estas taxas
+    # (hoje, o preview da triagem por IA, para respeitar a cota do Gemini).
+    "DEFAULT_THROTTLE_RATES": {
+        "triagem_ia": os.getenv("TRIAGEM_IA_THROTTLE_RATE", "5/min"),
+    },
 }
+
+# ─── Triagem por IA (Gemini) ──────────────────────────────────────────────────
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10"))
+GEMINI_MAX_RETRIES = int(os.getenv("GEMINI_MAX_RETRIES", "2"))
 
 # ─── Configuração do JWT ──────────────────────────────────────────────────────
 SIMPLE_JWT = {

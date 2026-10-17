@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from equipamentos.models import Equipamento
 from usuarios.models import Usuario
@@ -141,3 +142,42 @@ class OrdemServico(models.Model):
         if self.tecnico and self.tecnico.perfil_no_setor != 'tecnico':
             raise ValidationError("O técnico atribuído deve ter perfil 'Técnico' no setor")
         super().clean()
+
+
+class TriagemIA(models.Model):
+    """Auditoria da triagem por IA que originou uma OS aberta por linguagem
+    natural. So e gravada junto com a criacao efetiva da OS (o preview da
+    triagem nao persiste nada). Para saber se o usuario mudou a prioridade,
+    compare prioridade_sugerida com id_os.prioridade."""
+
+    class TipoProblema(models.TextChoices):
+        MECANICO = "mecanico", "Mecânico"
+        ELETRICO = "eletrico", "Elétrico"
+        HIDRAULICO = "hidraulico", "Hidráulico"
+        SOFTWARE = "software", "Software"
+        OUTRO = "outro", "Outro"
+
+    id_triagem = models.AutoField(primary_key=True)
+    id_os = models.OneToOneField(
+        OrdemServico,
+        on_delete=models.CASCADE,
+        related_name="triagem_ia",
+        db_column="id_os",
+    )
+    texto_original = models.TextField()
+    tipo_problema = models.CharField(max_length=20, choices=TipoProblema.choices)
+    justificativa_prioridade = models.TextField()
+    confianca = models.FloatField(
+        validators=[MinValueValidator(0), MaxValueValidator(1)]
+    )
+    modelo_usado = models.CharField(max_length=100)
+    prioridade_sugerida = models.CharField(
+        max_length=10,
+        choices=OrdemServico.Prioridade.choices,
+    )
+
+    class Meta:
+        db_table = "triagens_ia"
+
+    def __str__(self):
+        return f"Triagem IA da OS#{self.id_os_id} ({self.prioridade_sugerida})"
