@@ -55,6 +55,36 @@ const FORM_VAZIO = {
   is_active: true,
 };
 
+// Sinaliza técnico/operador sem setor ou em setor desativado. O admin não é
+// sinalizado: o acesso dele é a empresa toda, não depende de setor.
+function SetorDoUsuario({ setor, perfil }) {
+  const sinalizar = perfil !== "admin";
+
+  if (!setor) {
+    return sinalizar ? (
+      <span title="Sem setor vinculado: o usuário não vê equipamentos nem chamados.">
+        <Badge color="amber">Sem setor</Badge>
+      </span>
+    ) : (
+      "—"
+    );
+  }
+
+  if (!setor.ativo && sinalizar) {
+    return (
+      <span
+        title="O setor deste usuário está desativado: ele não consegue abrir chamados nos equipamentos do setor."
+        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+      >
+        {setor.nome}
+        <Badge color="amber">Setor inativo</Badge>
+      </span>
+    );
+  }
+
+  return setor.nome;
+}
+
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 export function UsersPage() {
@@ -104,8 +134,9 @@ export function UsersPage() {
 
   function setorDoUsuario(id_usuario) {
     const v = vinculoDoUsuario(id_usuario);
-    if (!v) return "—";
-    return v.setor_nome ?? "—";
+    if (!v) return null;
+    const setor = setores.find((s) => s.id_setor === v.id_setor);
+    return { nome: v.setor_nome ?? "—", ativo: setor?.ativo !== false };
   }
 
   // ─── Abrir modal ─────────────────────────────────────────────────────────
@@ -445,7 +476,10 @@ export function UsersPage() {
 
                   {/* Setor */}
                   <td style={{ padding: "0.75rem 1rem", color: C.gray500 }}>
-                    {setorDoUsuario(u.id_usuario)}
+                    <SetorDoUsuario
+                      setor={setorDoUsuario(u.id_usuario)}
+                      perfil={u.perfil}
+                    />
                   </td>
 
                   {/* Status */}
@@ -647,11 +681,17 @@ export function UsersPage() {
             }
           >
             <option value="">Selecione o setor...</option>
-            {setores.map((s) => (
-              <option key={s.id_setor} value={String(s.id_setor)}>
-                {s.nome}
-              </option>
-            ))}
+            {/* Só setores ativos; o setor atual do usuário em edição continua
+                visível (marcado) mesmo se tiver sido desativado. */}
+            {setores
+              .filter(
+                (s) => s.ativo !== false || String(s.id_setor) === form.id_setor,
+              )
+              .map((s) => (
+                <option key={s.id_setor} value={String(s.id_setor)}>
+                  {s.ativo === false ? `${s.nome} (inativo)` : s.nome}
+                </option>
+              ))}
           </Select>
 
           {/* Status — só exibe na edição */}
