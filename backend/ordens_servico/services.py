@@ -214,10 +214,8 @@ class OrdemServicoService:
             return
 
         outra_os_ativa = (
-            OrdemServico.objects.filter(
-                id_equipamento=equipamento,
-                status__in=[OrdemServico.Status.ABERTA, OrdemServico.Status.EM_ANDAMENTO],
-            )
+            OrdemServico.objects.em_aberto()
+            .filter(id_equipamento=equipamento)
             .exclude(pk=ordem.pk)
             .exists()
         )
