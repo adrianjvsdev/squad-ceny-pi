@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { C } from "@/lib/constants";
+import { C, NOME_MAX_LENGTH } from "@/lib/constants";
 import { listEquipamentos } from "@/lib/equipamentos";
 import { listOrdensServico } from "@/lib/ordensServico";
 import { buildRiskZones, normalizeApiList } from "@/lib/riskMap";
-import { getSetores } from "@/lib/setores";
+import { getSetores, updateSetor } from "@/lib/setores";
 import { getUsuarioAtual, updateProfile } from "@/lib/usuarios";
-import { Badge, Btn, Ico, Input, IoTBadge } from "@/app/components/ui";
+import { Badge, Btn, Ico, Input, IoTBadge, Modal } from "@/app/components/ui";
 
 function parseApiError(error, fallback) {
   const detail = error?.response?.data;
@@ -26,13 +26,20 @@ function truncateLabel(label, maxLength) {
 // ============================================================
 // RISK MAP PAGE
 // ============================================================
-export function RiskMapPage() {
+export function RiskMapPage({ userType }) {
   const [selectedZoneId, setSelectedZoneId] = useState(null);
   const [setores, setSetores] = useState([]);
   const [equipamentos, setEquipamentos] = useState([]);
   const [ordens, setOrdens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
+
+  // Edição / desativação de setor (admin)
+  const [setorEmEdicao, setSetorEmEdicao] = useState(null);
+  const [nomeSetor, setNomeSetor] = useState("");
+  const [salvandoSetor, setSalvandoSetor] = useState(false);
+  const [erroSetor, setErroSetor] = useState(null);
+  const [alterandoSetorAtivo, setAlterandoSetorAtivo] = useState(false);
 
   const riskColors = {
     low: {
@@ -52,6 +59,12 @@ export function RiskMapPage() {
       stroke: "#fca5a5",
       label: "#b91c1c",
       badge: "Alto",
+    },
+    inactive: {
+      fill: C.gray100,
+      stroke: C.gray300,
+      label: C.gray500,
+      badge: "Inativo",
     },
   };
 
@@ -98,6 +111,80 @@ export function RiskMapPage() {
   }, [selectedZone, selectedZoneId]);
 
   const activeAlertZones = zones.filter((zone) => zone.alerts > 0);
+
+  function abrirModalEditarSetor(zone) {
+    setSetorEmEdicao(zone);
+    setNomeSetor(zone.label);
+    setErroSetor(null);
+  }
+
+  function fecharModalEditarSetor() {
+    setSetorEmEdicao(null);
+    setErroSetor(null);
+  }
+
+  async function handleSalvarSetor() {
+    setErroSetor(null);
+    if (!nomeSetor.trim()) return setErroSetor("Nome do setor é obrigatório.");
+
+    setSalvandoSetor(true);
+    try {
+      const atualizado = await updateSetor(setorEmEdicao.id, {
+        nome: nomeSetor.trim(),
+      });
+      setSetores((prev) =>
+        prev.map((s) =>
+          String(s.id_setor) === setorEmEdicao.id ? atualizado : s,
+        ),
+      );
+      fecharModalEditarSetor();
+    } catch (e) {
+      setErroSetor(parseApiError(e, "Erro ao salvar setor. Tente novamente."));
+    } finally {
+      setSalvandoSetor(false);
+    }
+  }
+
+  async function handleAlternarSetorAtivo(zone) {
+    const desativar = zone.ativo;
+    // O backend também barra; aqui só evita pedir uma confirmação inútil.
+    if (desativar && zone.activeOrders > 0) {
+      alert(
+        `Não é possível desativar o setor "${zone.label}": há ${zone.activeOrders} OS em aberto em equipamentos dele. Conclua ou cancele as OS antes.`,
+      );
+      return;
+    }
+    const equipsAtivos = zone.equips.filter(
+      (e) => e.status !== "inativo",
+    ).length;
+    const mensagem = desativar
+      ? `Desativar o setor "${zone.label}"?` +
+        (equipsAtivos > 0
+          ? ` Os ${equipsAtivos} equipamento(s) ativo(s) dele também serão desativados.`
+          : "") +
+        " Reativar o setor depois não reativa os equipamentos."
+      : `Reativar o setor "${zone.label}"?` +
+        (zone.equips.length > 0
+          ? " Os equipamentos dele continuam inativos até serem reativados no Inventário."
+          : "");
+    if (!confirm(mensagem)) return;
+
+    setAlterandoSetorAtivo(true);
+    try {
+      await updateSetor(zone.id, { ativo: !zone.ativo });
+      // Recarrega tudo: desativar o setor também muda o status dos equipamentos.
+      await carregarMapa();
+    } catch (e) {
+      alert(
+        parseApiError(
+          e,
+          `Erro ao ${desativar ? "desativar" : "reativar"} setor.`,
+        ),
+      );
+    } finally {
+      setAlterandoSetorAtivo(false);
+    }
+  }
 
   function renderMapContent() {
     if (loading) {
@@ -398,12 +485,42 @@ export function RiskMapPage() {
                       ? "red"
                       : selectedZone.risk === "medium"
                         ? "amber"
-                        : "green"
+                        : selectedZone.risk === "inactive"
+                          ? "gray"
+                          : "green"
                   }
                 >
                   {riskColors[selectedZone.risk].badge}
                 </Badge>
               </div>
+              {userType === "admin" && (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    marginBottom: "0.75rem",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Btn
+                    size="sm"
+                    variant="ghost"
+                    icon="edit"
+                    onClick={() => abrirModalEditarSetor(selectedZone)}
+                  >
+                    Editar
+                  </Btn>
+                  <Btn
+                    size="sm"
+                    variant={selectedZone.ativo ? "ghost" : "secondary"}
+                    icon="power"
+                    onClick={() => handleAlternarSetorAtivo(selectedZone)}
+                    disabled={alterandoSetorAtivo}
+                  >
+                    {selectedZone.ativo ? "Desativar" : "Reativar"}
+                  </Btn>
+                </div>
+              )}
               {selectedZone.alerts > 0 && (
                 <div
                   style={{
@@ -478,7 +595,7 @@ export function RiskMapPage() {
                       fontWeight: 700,
                     }}
                   >
-                    {selectedZone.equipmentIssues}
+                    {selectedZone.equips.length}
                   </div>
                 </div>
               </div>
@@ -647,6 +764,39 @@ export function RiskMapPage() {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={!!setorEmEdicao}
+        onClose={fecharModalEditarSetor}
+        title="Editar Setor"
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <Input
+            label="Nome do setor"
+            placeholder="Ex: Utilidades"
+            value={nomeSetor}
+            maxLength={NOME_MAX_LENGTH}
+            onChange={(e) => setNomeSetor(e.target.value)}
+          />
+          {erroSetor && (
+            <p style={{ margin: 0, fontSize: "0.78rem", color: "red" }}>
+              {erroSetor}
+            </p>
+          )}
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Btn
+              variant="ghost"
+              onClick={fecharModalEditarSetor}
+              disabled={salvandoSetor}
+            >
+              Cancelar
+            </Btn>
+            <Btn onClick={handleSalvarSetor} disabled={salvandoSetor}>
+              {salvandoSetor ? "Salvando..." : "Salvar alterações"}
+            </Btn>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
