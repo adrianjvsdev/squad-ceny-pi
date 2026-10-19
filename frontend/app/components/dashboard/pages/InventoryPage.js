@@ -64,6 +64,7 @@ function EquipmentTooltip({ equip }) {
             borderRadius: 8,
             padding: "0.85rem",
             width: 260,
+            boxSizing: "border-box",
             boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
             animation: "fadeIn 0.15s ease",
           }}
@@ -73,24 +74,35 @@ function EquipmentTooltip({ equip }) {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
+              gap: 8,
               marginBottom: 8,
             }}
           >
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div
                 style={{
                   fontWeight: 700,
                   color: C.gray900,
                   fontSize: "0.82rem",
+                  minWidth: 0,
+                  overflowWrap: "anywhere",
                 }}
               >
                 {equip.name}
               </div>
-              <div style={{ fontSize: "0.72rem", color: C.gray400 }}>
+              <div
+                style={{
+                  fontSize: "0.72rem",
+                  color: C.gray400,
+                  overflowWrap: "anywhere",
+                }}
+              >
                 {equip.id} · {equip.setor}
               </div>
             </div>
-            <Badge color={statusColor(equip.status)}>{equip.status}</Badge>
+            <div style={{ flexShrink: 0 }}>
+              <Badge color={statusColor(equip.status)}>{equip.status}</Badge>
+            </div>
           </div>
           {equip.iot && (
             <div
@@ -1040,7 +1052,7 @@ export function InventoryPage({ userType }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
               gap: "0.85rem",
             }}
           >
@@ -1065,7 +1077,7 @@ export function InventoryPage({ userType }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
               gap: "0.85rem",
             }}
           >

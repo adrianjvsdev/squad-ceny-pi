@@ -459,6 +459,7 @@ export function RiskMapPage({ userType }) {
                 border: `1px solid ${C.gray200}`,
                 borderRadius: 8,
                 padding: "1rem",
+                boxSizing: "border-box",
               }}
             >
               <div
@@ -466,6 +467,7 @@ export function RiskMapPage({ userType }) {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "flex-start",
+                  gap: 8,
                   marginBottom: "0.75rem",
                 }}
               >
@@ -475,23 +477,28 @@ export function RiskMapPage({ userType }) {
                     fontSize: "0.88rem",
                     fontWeight: 700,
                     color: C.gray900,
+                    minWidth: 0,
+                    flex: 1,
+                    overflowWrap: "anywhere",
                   }}
                 >
                   {selectedZone.label}
                 </h4>
-                <Badge
-                  color={
-                    selectedZone.risk === "high"
-                      ? "red"
-                      : selectedZone.risk === "medium"
-                        ? "amber"
-                        : selectedZone.risk === "inactive"
-                          ? "gray"
-                          : "green"
-                  }
-                >
-                  {riskColors[selectedZone.risk].badge}
-                </Badge>
+                <div style={{ flexShrink: 0 }}>
+                  <Badge
+                    color={
+                      selectedZone.risk === "high"
+                        ? "red"
+                        : selectedZone.risk === "medium"
+                          ? "amber"
+                          : selectedZone.risk === "inactive"
+                            ? "gray"
+                            : "green"
+                    }
+                  >
+                    {riskColors[selectedZone.risk].badge}
+                  </Badge>
+                </div>
               </div>
               {userType === "admin" && (
                 <div
