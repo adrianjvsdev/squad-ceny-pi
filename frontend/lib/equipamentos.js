@@ -78,12 +78,12 @@ export function mapStatusBackendParaUI(statusBackend) {
   /**
    * Mapeia status do backend para UI
    * Backend: "ativo", "em_manutencao", "inativo"
-   * UI: "Operacional", "Em Manutenção", "Offline"
+   * UI: "Operacional", "Em Manutenção", "Inativo"
    */
   const mapa = {
     ativo: "Operacional",
     em_manutencao: "Em Manutenção",
-    inativo: "Offline",
+    inativo: "Inativo",
   };
   return mapa[statusBackend] || statusBackend;
 }
@@ -91,13 +91,13 @@ export function mapStatusBackendParaUI(statusBackend) {
 export function mapStatusUIParaBackend(statusUI) {
   /**
    * Mapeia status da UI para backend
-   * UI: "Operacional", "Em Manutenção", "Offline"
+   * UI: "Operacional", "Em Manutenção", "Inativo"
    * Backend: "ativo", "em_manutencao", "inativo"
    */
   const mapa = {
     Operacional: "ativo",
     "Em Manutenção": "em_manutencao",
-    Offline: "inativo",
+    Inativo: "inativo",
   };
   return mapa[statusUI] || statusUI;
 }

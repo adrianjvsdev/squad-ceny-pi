@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { C } from "@/lib/constants";
+import { C, NOME_MAX_LENGTH } from "@/lib/constants";
 import {
   Badge,
   Btn,
@@ -13,6 +13,23 @@ import {
 } from "@/app/components/ui";
 import { getSetores, createSetor } from "@/lib/setores";
 import * as equipamentosAPI from "@/lib/equipamentos";
+
+// Junta ao equipamento da API os dados de manutenção e IoT exibidos na tabela.
+async function enriquecer(equip, tiposMap) {
+  const proximaMaint = await equipamentosAPI.getProximaManutencao(
+    equip.id_equipamento,
+  );
+  const iotStatus = equip.tem_iot
+    ? await equipamentosAPI.getIoTStatus(equip.id_equipamento)
+    : null;
+
+  return equipamentosAPI.enriquecerEquipamento(
+    equip,
+    tiposMap[equip.id_tipo],
+    proximaMaint,
+    iotStatus,
+  );
+}
 
 function EquipmentTooltip({ equip }) {
   const [show, setShow] = useState(false);
@@ -47,6 +64,7 @@ function EquipmentTooltip({ equip }) {
             borderRadius: 8,
             padding: "0.85rem",
             width: 260,
+            boxSizing: "border-box",
             boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
             animation: "fadeIn 0.15s ease",
           }}
@@ -56,24 +74,35 @@ function EquipmentTooltip({ equip }) {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
+              gap: 8,
               marginBottom: 8,
             }}
           >
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div
                 style={{
                   fontWeight: 700,
                   color: C.gray900,
                   fontSize: "0.82rem",
+                  minWidth: 0,
+                  overflowWrap: "anywhere",
                 }}
               >
                 {equip.name}
               </div>
-              <div style={{ fontSize: "0.72rem", color: C.gray400 }}>
+              <div
+                style={{
+                  fontSize: "0.72rem",
+                  color: C.gray400,
+                  overflowWrap: "anywhere",
+                }}
+              >
                 {equip.id} · {equip.setor}
               </div>
             </div>
-            <Badge color={statusColor(equip.status)}>{equip.status}</Badge>
+            <div style={{ flexShrink: 0 }}>
+              <Badge color={statusColor(equip.status)}>{equip.status}</Badge>
+            </div>
           </div>
           {equip.iot && (
             <div
@@ -173,6 +202,9 @@ export function InventoryPage({ userType }) {
   });
   const [salvandoEquip, setSalvandoEquip] = useState(false);
   const [erroEquip, setErroEquip] = useState(null);
+  // id do equipamento em edição; null = modal em modo de cadastro
+  const [editandoEquipId, setEditandoEquipId] = useState(null);
+  const [alterandoStatusId, setAlterandoStatusId] = useState(null);
 
   // Form tipo de equipamento
   const [formTipo, setFormTipo] = useState({
@@ -220,20 +252,7 @@ export function InventoryPage({ userType }) {
       // 3. Enriquecer cada equipamento com dados de manutenção + IoT
       const equipamentosEnriquecidos = [];
       for (const equip of equips) {
-        const proximaMaint = await equipamentosAPI.getProximaManutencao(
-          equip.id_equipamento,
-        );
-        const iotStatus = equip.tem_iot
-          ? await equipamentosAPI.getIoTStatus(equip.id_equipamento)
-          : null;
-
-        const enriquecido = equipamentosAPI.enriquecerEquipamento(
-          equip,
-          tiposMap[equip.id_tipo],
-          proximaMaint,
-          iotStatus,
-        );
-        equipamentosEnriquecidos.push(enriquecido);
+        equipamentosEnriquecidos.push(await enriquecer(equip, tiposMap));
       }
 
       setEquipamentos(equipamentosEnriquecidos);
@@ -295,6 +314,20 @@ export function InventoryPage({ userType }) {
       id_setor: "",
       tem_iot: false,
     });
+    setEditandoEquipId(null);
+    setErroEquip(null);
+    setShowEquipModal(true);
+  }
+
+  function abrirModalEditarEquip(equip) {
+    setFormEquip({
+      nome: equip.name,
+      tag: equip.tag,
+      id_tipo: equip.id_tipo != null ? String(equip.id_tipo) : "",
+      id_setor: equip.id_setor != null ? String(equip.id_setor) : "",
+      tem_iot: Boolean(equip.iot),
+    });
+    setEditandoEquipId(equip.id_equipamento);
     setErroEquip(null);
     setShowEquipModal(true);
   }
@@ -308,10 +341,11 @@ export function InventoryPage({ userType }) {
       id_setor: "",
       tem_iot: false,
     });
+    setEditandoEquipId(null);
     setErroEquip(null);
   }
 
-  async function handleCadastrarEquip() {
+  async function handleSalvarEquip() {
     setErroEquip(null);
 
     if (!formEquip.nome.trim()) {
@@ -335,18 +369,36 @@ export function InventoryPage({ userType }) {
         id_tipo: formEquip.id_tipo,
         id_setor: formEquip.id_setor,
         tem_iot: formEquip.tem_iot,
-        status: "ativo",
       };
-      await equipamentosAPI.criarEquipamento(payload);
-      fecharModalEquip();
-      await carregarEquipamentos();
+      if (editandoEquipId) {
+        // O status não passa por aqui: muda só pelo botão Desativar/Reativar.
+        const atualizado = await equipamentosAPI.atualizarEquipamento(
+          editandoEquipId,
+          payload,
+        );
+        const enriquecido = await enriquecer(atualizado, tipos);
+        setEquipamentos((prev) =>
+          prev.map((e) =>
+            e.id_equipamento === enriquecido.id_equipamento ? enriquecido : e,
+          ),
+        );
+        fecharModalEquip();
+      } else {
+        await equipamentosAPI.criarEquipamento({ ...payload, status: "ativo" });
+        fecharModalEquip();
+        await carregarEquipamentos();
+      }
     } catch (e) {
       const detail = e?.response?.data;
       if (detail && typeof detail === "object") {
         const msgs = Object.values(detail).flat().join(" ");
         setErroEquip(msgs);
       } else {
-        setErroEquip("Erro ao cadastrar equipamento. Tente novamente.");
+        setErroEquip(
+          editandoEquipId
+            ? "Erro ao salvar equipamento. Tente novamente."
+            : "Erro ao cadastrar equipamento. Tente novamente.",
+        );
       }
     } finally {
       setSalvandoEquip(false);
@@ -361,6 +413,47 @@ export function InventoryPage({ userType }) {
       await carregarEquipamentos();
     } catch (e) {
       alert("Erro ao deletar equipamento.");
+    }
+  }
+
+  async function handleAlternarAtivo(equip) {
+    const desativar = equip.statusBackend !== "inativo";
+    const mensagem = desativar
+      ? `Desativar "${equip.name}"? Ele deixará de gerar ordens preventivas e alertas IoT, e não poderá receber novas ordens de serviço.`
+      : `Reativar "${equip.name}"?`;
+    if (!confirm(mensagem)) return;
+
+    setAlterandoStatusId(equip.id_equipamento);
+    try {
+      const atualizado = await equipamentosAPI.atualizarEquipamento(
+        equip.id_equipamento,
+        { status: desativar ? "inativo" : "ativo" },
+      );
+      // Atualiza só a linha alterada: recarregar a lista refaria as buscas de
+      // manutenção e IoT de todos os equipamentos.
+      setEquipamentos((prev) =>
+        prev.map((e) =>
+          e.id_equipamento === atualizado.id_equipamento
+            ? {
+                ...e,
+                status: equipamentosAPI.mapStatusBackendParaUI(
+                  atualizado.status,
+                ),
+                statusBackend: atualizado.status,
+              }
+            : e,
+        ),
+      );
+    } catch (e) {
+      // Ex.: reativar equipamento de setor inativo devolve 400 explicando o motivo.
+      const detail = e?.response?.data;
+      alert(
+        detail && typeof detail === "object"
+          ? Object.values(detail).flat().join(" ")
+          : `Erro ao ${desativar ? "desativar" : "reativar"} equipamento.`,
+      );
+    } finally {
+      setAlterandoStatusId(null);
     }
   }
 
@@ -425,6 +518,11 @@ export function InventoryPage({ userType }) {
 
   const statusColor = (s) =>
     s === "Operacional" ? "green" : s === "Em Manutenção" ? "amber" : "red";
+
+  // Setor inativo não recebe equipamento; na edição, o setor atual continua na lista.
+  const setoresDisponiveis = setores.filter(
+    (s) => s.ativo !== false || String(s.id_setor) === formEquip.id_setor,
+  );
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -516,7 +614,7 @@ export function InventoryPage({ userType }) {
             }}
           />
         </div>
-        {["all", "Operacional", "Em Manutenção", "Offline"].map((s) => (
+        {["all", "Operacional", "Em Manutenção", "Inativo"].map((s) => (
           <button
             key={s}
             onClick={() => setFilterStatus(s)}
@@ -668,14 +766,45 @@ export function InventoryPage({ userType }) {
                     {eq.lastMaint}
                   </td>
                   <td style={{ padding: "0.75rem 1rem" }}>
-                    <Btn
-                      size="sm"
-                      variant="ghost"
-                      icon="eye"
-                      onClick={() => setSelectedEquip(eq)}
+                    <div
+                      style={{ display: "flex", gap: 6, whiteSpace: "nowrap" }}
                     >
-                      Ver
-                    </Btn>
+                      <Btn
+                        size="sm"
+                        variant="ghost"
+                        icon="eye"
+                        onClick={() => setSelectedEquip(eq)}
+                      >
+                        Ver
+                      </Btn>
+                      {userType === "admin" && (
+                        <Btn
+                          size="sm"
+                          variant="ghost"
+                          icon="edit"
+                          onClick={() => abrirModalEditarEquip(eq)}
+                        >
+                          Editar
+                        </Btn>
+                      )}
+                      {userType === "admin" && (
+                        <Btn
+                          size="sm"
+                          variant={
+                            eq.statusBackend === "inativo"
+                              ? "secondary"
+                              : "ghost"
+                          }
+                          icon="power"
+                          onClick={() => handleAlternarAtivo(eq)}
+                          disabled={alterandoStatusId === eq.id_equipamento}
+                        >
+                          {eq.statusBackend === "inativo"
+                            ? "Reativar"
+                            : "Desativar"}
+                        </Btn>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -828,6 +957,7 @@ export function InventoryPage({ userType }) {
             label="Nome do setor"
             placeholder="Ex: Utilidades"
             value={nomeSetor}
+            maxLength={NOME_MAX_LENGTH}
             onChange={(e) => setNomeSetor(e.target.value)}
           />
           {erroSetor && (
@@ -861,6 +991,7 @@ export function InventoryPage({ userType }) {
             label="Nome do tipo"
             placeholder="Ex: Bomba, Motor, Compressor..."
             value={formTipo.nome}
+            maxLength={NOME_MAX_LENGTH}
             onChange={(e) => setFormTipo({ ...formTipo, nome: e.target.value })}
           />
           <div
@@ -912,7 +1043,7 @@ export function InventoryPage({ userType }) {
       <Modal
         open={showEquipModal}
         onClose={fecharModalEquip}
-        title="Cadastrar Equipamento"
+        title={editandoEquipId ? "Editar Equipamento" : "Cadastrar Equipamento"}
         width={560}
       >
         <div
@@ -921,7 +1052,7 @@ export function InventoryPage({ userType }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
               gap: "0.85rem",
             }}
           >
@@ -929,6 +1060,7 @@ export function InventoryPage({ userType }) {
               label="Nome do equipamento"
               placeholder="Ex: Bomba A-2"
               value={formEquip.nome}
+              maxLength={NOME_MAX_LENGTH}
               onChange={(e) =>
                 setFormEquip({ ...formEquip, nome: e.target.value })
               }
@@ -945,7 +1077,7 @@ export function InventoryPage({ userType }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
               gap: "0.85rem",
             }}
           >
@@ -972,12 +1104,12 @@ export function InventoryPage({ userType }) {
             >
               {loadingSetores ? (
                 <option>Carregando...</option>
-              ) : setores.length === 0 ? (
-                <option>Nenhum setor cadastrado</option>
+              ) : setoresDisponiveis.length === 0 ? (
+                <option>Nenhum setor ativo cadastrado</option>
               ) : (
                 <>
                   <option value="">Selecione o setor...</option>
-                  {setores.map((s) => (
+                  {setoresDisponiveis.map((s) => (
                     <option key={s.id_setor} value={s.id_setor}>
                       {s.nome}
                     </option>
@@ -1031,8 +1163,14 @@ export function InventoryPage({ userType }) {
             >
               Cancelar
             </Btn>
-            <Btn onClick={handleCadastrarEquip} disabled={salvandoEquip}>
-              {salvandoEquip ? "Cadastrando..." : "Cadastrar Equipamento"}
+            <Btn onClick={handleSalvarEquip} disabled={salvandoEquip}>
+              {editandoEquipId
+                ? salvandoEquip
+                  ? "Salvando..."
+                  : "Salvar alterações"
+                : salvandoEquip
+                  ? "Cadastrando..."
+                  : "Cadastrar Equipamento"}
             </Btn>
           </div>
         </div>

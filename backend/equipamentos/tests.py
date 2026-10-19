@@ -5,7 +5,8 @@ from config.testutils import (
     criar_setor,
     vincular,
 )
-from equipamentos.models import TipoEquipamento
+from equipamentos.models import Equipamento, TipoEquipamento
+from ordens_servico.models import OrdemServico
 from usuarios.models import UsuarioSetor
 
 
@@ -159,8 +160,131 @@ class EquipamentoViewSetTests(BaseTestCase):
         self.assertEqual(self.c.equipamento.nome, "Renomeado")
         self.assertIsNone(self.c.equipamento.proxima_manutencao)
 
+    def test_nao_admin_le_mas_nao_escreve(self):
+        url = f"/api/equipamentos/{self.c.equipamento.pk}/"
+        novo = {"tag": "NAO-ADMIN", "nome": "X", "id_setor": self.c.setor.pk}
+        for usuario in (self.c.operador, self.c.tecnico):
+            client = self.cliente(usuario)
+            self.assertEqual(client.get(url).status_code, 200)
+            self.assertEqual(
+                client.post("/api/equipamentos/", novo, format="json").status_code, 403
+            )
+            self.assertEqual(
+                client.patch(url, {"status": "inativo"}, format="json").status_code, 403
+            )
+            self.assertEqual(client.put(url, novo, format="json").status_code, 403)
+            self.assertEqual(client.delete(url).status_code, 403)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "ativo")
+        self.assertFalse(Equipamento.objects.filter(tag="NAO-ADMIN").exists())
+
+    def test_admin_desativa_e_reativa(self):
+        url = f"/api/equipamentos/{self.c.equipamento.pk}/"
+        client = self.cliente(self.c.admin)
+        resp = client.patch(url, {"status": "inativo"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["status"], "inativo")
+        resp = client.patch(url, {"status": "ativo"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "ativo")
+
+    def _os(self, status):
+        return OrdemServico.objects.create(
+            titulo="Falha",
+            tipo_manutencao=OrdemServico.TipoManutencao.CORRETIVA,
+            id_equipamento=self.c.equipamento,
+            status=status,
+        )
+
+    def test_nao_desativa_com_os_em_aberto(self):
+        url = f"/api/equipamentos/{self.c.equipamento.pk}/"
+        client = self.cliente(self.c.admin)
+        for status in ("aberta", "em_andamento"):
+            ordem = self._os(status)
+            resp = client.patch(url, {"status": "inativo"}, format="json")
+            self.assertEqual(resp.status_code, 400)
+            self.assertEqual(
+                [str(e) for e in resp.data["status"]],
+                ["Não é possível desativar: o equipamento tem 1 OS em aberto. Conclua ou cancele as OS antes."],
+            )
+            ordem.delete()
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "ativo")
+
+    def test_desativa_com_os_concluida_ou_cancelada(self):
+        self._os("concluida")
+        self._os("cancelada")
+        resp = self.cliente(self.c.admin).patch(
+            f"/api/equipamentos/{self.c.equipamento.pk}/", {"status": "inativo"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_admin_exclui(self):
+        resp = self.cliente(self.c.admin).delete(f"/api/equipamentos/{self.eq_b.pk}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(Equipamento.objects.filter(pk=self.eq_b.pk).exists())
+
+    def test_nome_limitado_a_40_caracteres(self):
+        client = self.cliente(self.c.admin)
+        criar = client.post(
+            "/api/equipamentos/",
+            {"tag": "LONGO-1", "nome": "E" * 41, "id_setor": self.c.setor.pk},
+            format="json",
+        )
+        self.assertEqual(criar.status_code, 400)
+        self.assertIn("nome", criar.data)
+        editar = client.patch(
+            f"/api/equipamentos/{self.c.equipamento.pk}/", {"nome": "E" * 41}, format="json"
+        )
+        self.assertEqual(editar.status_code, 400)
+        no_limite = client.post(
+            "/api/equipamentos/",
+            {"tag": "LONGO-2", "nome": "E" * 40, "id_setor": self.c.setor.pk},
+            format="json",
+        )
+        self.assertEqual(no_limite.status_code, 201)
+
+    def test_setor_inativo_so_aceita_equipamento_inativo(self):
+        self.setor_b.ativo = False
+        self.setor_b.save()
+        self.eq_b.status = "inativo"
+        self.eq_b.save()
+        client = self.cliente(self.c.admin)
+        msg = ["Este setor está inativo. Reative o setor antes de ter equipamentos ativos nele."]
+
+        criar = client.post(
+            "/api/equipamentos/",
+            {"tag": "NOVO-3", "nome": "Novo", "id_setor": self.setor_b.pk},
+            format="json",
+        )
+        self.assertEqual(criar.status_code, 400)
+        self.assertEqual([str(e) for e in criar.data["id_setor"]], msg)
+
+        mover = client.patch(
+            f"/api/equipamentos/{self.c.equipamento.pk}/",
+            {"id_setor": self.setor_b.pk},
+            format="json",
+        )
+        self.assertEqual(mover.status_code, 400)
+
+        reativar = client.patch(
+            f"/api/equipamentos/{self.eq_b.pk}/", {"status": "ativo"}, format="json"
+        )
+        self.assertEqual(reativar.status_code, 400)
+        self.assertEqual([str(e) for e in reativar.data["id_setor"]], msg)
+
+        # editar um equipamento que continua inativo no setor inativo é permitido
+        renomear = client.patch(
+            f"/api/equipamentos/{self.eq_b.pk}/", {"nome": "Renomeado"}, format="json"
+        )
+        self.assertEqual(renomear.status_code, 200)
+
     def test_sem_autenticacao_401(self):
         self.assertEqual(self.cliente().get("/api/equipamentos/").status_code, 401)
+        self.assertEqual(
+            self.cliente().post("/api/equipamentos/", {}, format="json").status_code, 401
+        )
 
 
 class TipoEquipamentoViewSetTests(BaseTestCase):
@@ -193,6 +317,16 @@ class TipoEquipamentoViewSetTests(BaseTestCase):
         )
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["id_empresa"], self.c.empresa.pk)
+
+    def test_nome_limitado_a_40_caracteres(self):
+        client = self.cliente(self.c.admin)
+        criar = client.post("/api/tipos-equipamento/", {"nome": "T" * 41}, format="json")
+        self.assertEqual(criar.status_code, 400)
+        self.assertIn("nome", criar.data)
+        no_limite = client.post(
+            "/api/tipos-equipamento/", {"nome": "T" * 40}, format="json"
+        )
+        self.assertEqual(no_limite.status_code, 201)
 
     def test_tipo_de_outra_empresa_404(self):
         resp = self.cliente(self.c.admin).get(

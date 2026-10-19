@@ -2,8 +2,15 @@ import io
 
 from django.core.management import call_command
 
-from config.testutils import BaseTestCase, Cenario, criar_setor, criar_usuario
+from config.testutils import (
+    BaseTestCase,
+    Cenario,
+    criar_equipamento,
+    criar_setor,
+    criar_usuario,
+)
 from empresas.models import Empresa, Setor
+from ordens_servico.models import OrdemServico
 
 
 class SetorViewSetTests(BaseTestCase):
@@ -20,12 +27,13 @@ class SetorViewSetTests(BaseTestCase):
     def test_campos_da_resposta(self):
         resp = self.cliente(self.c.admin).get("/api/setores/")
         self.assertEqual(
-            set(resp.data[0]), {"id_setor", "nome", "id_empresa", "empresa_nome"}
+            set(resp.data[0]), {"id_setor", "nome", "ativo", "id_empresa", "empresa_nome"}
         )
         self.assertEqual(resp.data[0]["empresa_nome"], self.c.empresa.nome)
+        self.assertTrue(resp.data[0]["ativo"])
 
     def test_criar_forca_empresa_do_usuario(self):
-        resp = self.cliente(self.c.operador).post(
+        resp = self.cliente(self.c.admin).post(
             "/api/setores/",
             {"nome": "Novo", "id_empresa": self.outra.empresa.pk},
             format="json",
@@ -45,6 +53,82 @@ class SetorViewSetTests(BaseTestCase):
         resp = client.patch(f"/api/setores/{setor.pk}/", {"nome": "Renomeado"}, format="json")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(client.delete(f"/api/setores/{setor.pk}/").status_code, 204)
+
+    def test_nao_admin_le_mas_nao_escreve(self):
+        url = f"/api/setores/{self.c.setor.pk}/"
+        for usuario in (self.c.operador, self.c.tecnico):
+            client = self.cliente(usuario)
+            self.assertEqual(client.get(url).status_code, 200)
+            self.assertEqual(
+                client.post("/api/setores/", {"nome": "X"}, format="json").status_code, 403
+            )
+            self.assertEqual(
+                client.patch(url, {"ativo": False}, format="json").status_code, 403
+            )
+            self.assertEqual(client.delete(url).status_code, 403)
+        self.c.setor.refresh_from_db()
+        self.assertTrue(self.c.setor.ativo)
+
+    def test_nome_limitado_a_40_caracteres(self):
+        client = self.cliente(self.c.admin)
+        criar = client.post("/api/setores/", {"nome": "S" * 41}, format="json")
+        self.assertEqual(criar.status_code, 400)
+        self.assertIn("nome", criar.data)
+        editar = client.patch(
+            f"/api/setores/{self.c.setor.pk}/", {"nome": "S" * 41}, format="json"
+        )
+        self.assertEqual(editar.status_code, 400)
+        no_limite = client.post("/api/setores/", {"nome": "S" * 40}, format="json")
+        self.assertEqual(no_limite.status_code, 201)
+
+    def _os(self, equipamento, status):
+        return OrdemServico.objects.create(
+            titulo="Falha",
+            tipo_manutencao=OrdemServico.TipoManutencao.CORRETIVA,
+            id_equipamento=equipamento,
+            status=status,
+        )
+
+    def test_desativar_setor_desativa_seus_equipamentos(self):
+        em_manutencao = criar_equipamento(self.c.setor, status="em_manutencao")
+        de_outro_setor = criar_equipamento(criar_setor(self.c.empresa))
+        # OS em aberto em outro setor não impede desativar este
+        self._os(de_outro_setor, "aberta")
+        resp = self.cliente(self.c.admin).patch(
+            f"/api/setores/{self.c.setor.pk}/", {"ativo": False}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.data["ativo"])
+        for equipamento in (self.c.equipamento, em_manutencao):
+            equipamento.refresh_from_db()
+            self.assertEqual(equipamento.status, "inativo")
+        de_outro_setor.refresh_from_db()
+        self.assertEqual(de_outro_setor.status, "ativo")
+
+    def test_nao_desativa_setor_com_os_em_aberto(self):
+        self._os(self.c.equipamento, "em_andamento")
+        resp = self.cliente(self.c.admin).patch(
+            f"/api/setores/{self.c.setor.pk}/", {"ativo": False}, format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            [str(e) for e in resp.data["ativo"]],
+            ["Não é possível desativar o setor: há 1 OS em aberto em equipamentos dele. Conclua ou cancele as OS antes."],
+        )
+        self.c.setor.refresh_from_db()
+        self.c.equipamento.refresh_from_db()
+        self.assertTrue(self.c.setor.ativo)
+        self.assertEqual(self.c.equipamento.status, "ativo")
+
+    def test_reativar_setor_nao_reativa_equipamentos(self):
+        client = self.cliente(self.c.admin)
+        url = f"/api/setores/{self.c.setor.pk}/"
+        client.patch(url, {"ativo": False}, format="json")
+        resp = client.patch(url, {"ativo": True}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data["ativo"])
+        self.c.equipamento.refresh_from_db()
+        self.assertEqual(self.c.equipamento.status, "inativo")
 
     def test_sem_autenticacao_401(self):
         self.assertEqual(self.cliente().get("/api/setores/").status_code, 401)

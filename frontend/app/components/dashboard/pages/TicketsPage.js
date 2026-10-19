@@ -138,6 +138,12 @@ export function TicketsPage({ userType, profile }) {
     [tickets, equipamentosPorId],
   );
 
+  // Só setores ativos; o setor já selecionado (preenchido pelo equipamento)
+  // continua na lista para o select não mostrar um valor diferente do real.
+  const setoresAtivos = setores.filter(
+    (setor) => setor.ativo !== false || String(setor.id_setor) === form.setor,
+  );
+
   const resumo = useMemo(() => {
     const abertos = tickets.filter((t) => t.status === "aberta").length;
     const emExecucao = tickets.filter((t) => t.status === "em_andamento").length;
@@ -785,7 +791,7 @@ export function TicketsPage({ userType, profile }) {
           />
         ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "0.85rem" }}>
             <Select
               label="Equipamento"
               value={form.equip}
@@ -816,10 +822,10 @@ export function TicketsPage({ userType, profile }) {
               <option value="">Selecionar...</option>
               {loadingRecursos ? (
                 <option disabled>Carregando setores...</option>
-              ) : setores.length === 0 ? (
-                <option disabled>Nenhum setor cadastrado</option>
+              ) : setoresAtivos.length === 0 ? (
+                <option disabled>Nenhum setor ativo cadastrado</option>
               ) : (
-                setores.map((setor) => (
+                setoresAtivos.map((setor) => (
                   <option key={setor.id_setor} value={String(setor.id_setor)}>
                     {setor.nome}
                   </option>
@@ -827,7 +833,7 @@ export function TicketsPage({ userType, profile }) {
               )}
             </Select>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "0.85rem" }}>
             <Select label="Tipo de chamado" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}>
               <option value="">Selecionar...</option>
               <option value="corretiva">Manutenção Corretiva</option>

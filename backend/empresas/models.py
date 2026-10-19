@@ -18,6 +18,7 @@ class Empresa(models.Model):
 class Setor(models.Model):
     id_setor = models.AutoField(primary_key=True)
     nome = models.CharField(max_length=200)
+    ativo = models.BooleanField(default=True)
     id_empresa = models.ForeignKey(
         Empresa,
         on_delete=models.CASCADE,

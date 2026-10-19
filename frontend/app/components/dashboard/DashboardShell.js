@@ -69,7 +69,7 @@ function PageContent({ page, perfil, profile, onProfileUpdate }) {
     case "inventory":
       return <InventoryPage userType={perfil} />;
     case "riskmap":
-      return <RiskMapPage />;
+      return <RiskMapPage userType={perfil} />;
     case "users":
       return <UsersPage />;
     case "settings":

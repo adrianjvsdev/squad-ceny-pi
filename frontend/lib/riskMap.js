@@ -71,9 +71,7 @@ function getZoneGeometry(index, total) {
 }
 
 function calculateRisk(equipamentos, ordens) {
-  const inactiveEquipments = equipamentos.filter(
-    (equipamento) => equipamento.status === "inativo",
-  ).length;
+  // Equipamento inativo não conta: foi desativado de propósito pelo admin.
   const maintenanceEquipments = equipamentos.filter(
     (equipamento) => equipamento.status === "em_manutencao",
   ).length;
@@ -89,7 +87,7 @@ function calculateRisk(equipamentos, ordens) {
   ).length;
   const lowOrders = ordens.filter((ordem) => ordem.prioridade === "baixa").length;
 
-  const highProblems = highOrders + inactiveEquipments;
+  const highProblems = highOrders;
   const mediumProblems = mediumOrders + maintenanceEquipments;
   const lowProblems = lowOrders;
   const totalProblems = highProblems + mediumProblems + lowProblems;
@@ -113,9 +111,17 @@ function calculateRisk(equipamentos, ordens) {
     highProblems,
     mediumProblems,
     lowProblems,
-    equipmentIssues: inactiveEquipments + maintenanceEquipments,
   };
 }
+
+// Setor desativado aparece como "Inativo" no mapa, fora do cálculo de risco.
+const INACTIVE_SECTOR_RISK = {
+  risk: "inactive",
+  totalProblems: 0,
+  highProblems: 0,
+  mediumProblems: 0,
+  lowProblems: 0,
+};
 
 function formatEquipment(equipamento) {
   const fallbackId = `${equipamento.tag ?? "equip"}-${equipamento.nome ?? ""}`;
@@ -153,11 +159,15 @@ export function buildRiskZones(setores, equipamentos, ordens) {
     const setorId = key(setor.id_setor) ?? `setor-${index}`;
     const setorEquipamentos = equipamentosPorSetor.get(setorId) ?? [];
     const setorOrdens = ordensPorSetor.get(setorId) ?? [];
-    const riskInfo = calculateRisk(setorEquipamentos, setorOrdens);
+    const ativo = setor.ativo !== false;
+    const riskInfo = ativo
+      ? calculateRisk(setorEquipamentos, setorOrdens)
+      : INACTIVE_SECTOR_RISK;
 
     return {
       id: setorId,
       label: setor.nome || "Setor sem nome",
+      ativo,
       ...getZoneGeometry(index, setores.length),
       ...riskInfo,
       alerts: riskInfo.totalProblems,
