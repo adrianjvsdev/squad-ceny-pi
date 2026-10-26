@@ -167,6 +167,25 @@ const FORM_VAZIO = {
   senha: "",
 };
 
+function maskCNPJ(value) {
+  const d = value.replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
+  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length <= 12)
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
+function maskTelefone(value) {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  if (d.length === 0) return "";
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("projeto");
@@ -841,14 +860,20 @@ export default function HomePage() {
                     label="CNPJ"
                     placeholder="00.000.000/0001-00"
                     value={regForm.cnpj}
-                    onChange={(e) => campo("cnpj", e.target.value)}
+                    onChange={(e) => campo("cnpj", maskCNPJ(e.target.value))}
+                    maxLength={18}
+                    inputMode="numeric"
                     error={erros.cnpj}
                   />
                   <Input
                     label="Telefone"
                     placeholder="(11) 99999-0000"
                     value={regForm.telefone}
-                    onChange={(e) => campo("telefone", e.target.value)}
+                    onChange={(e) =>
+                      campo("telefone", maskTelefone(e.target.value))
+                    }
+                    maxLength={15}
+                    inputMode="numeric"
                     error={erros.telefone}
                   />
                 </div>
