@@ -88,6 +88,7 @@ Crie o arquivo `backend/.env` com o seguinte conteúdo:
 SECRET_KEY=django-insecure-troque-esta-chave-por-uma-string-longa-e-aleatoria
 DEBUG=True
 CORS_ALLOWED_ORIGINS=http://localhost:3000
+GEMINI_API_KEY=(sua chave api aqui)
 ```
 
 ### Banco de dados (Opcional)
