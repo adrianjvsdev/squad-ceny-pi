@@ -9,3 +9,8 @@ export async function createSetor(nome) {
   const { data } = await api.post("/api/setores/", { nome });
   return data;
 }
+
+export async function updateSetor(id, dados) {
+  const { data } = await api.patch(`/api/setores/${id}/`, dados);
+  return data;
+}

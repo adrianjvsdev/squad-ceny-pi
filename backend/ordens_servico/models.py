@@ -29,6 +29,12 @@ class OrdemServicoQuerySet(models.QuerySet):
 
         return queryset.filter(id_equipamento__id_setor__in=setores_ids)
 
+    def em_aberto(self):
+        """OS ainda em curso: aberta (aguardando aprovacao) ou em andamento."""
+        return self.filter(
+            status__in=[OrdemServico.Status.ABERTA, OrdemServico.Status.EM_ANDAMENTO]
+        )
+
 
 class OrdemServico(models.Model):
     class Prioridade(models.TextChoices):

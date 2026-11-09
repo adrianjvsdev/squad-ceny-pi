@@ -1,4 +1,6 @@
+from django.db import transaction
 from rest_framework import mixins, viewsets, permissions
+from equipamentos.models import Equipamento
 from usuarios.permissions import IsAdmin
 from .models import Empresa, Setor
 from .serializers import EmpresaSerializer, SetorSerializer
@@ -30,7 +32,13 @@ class EmpresaViewSet(
 
 class SetorViewSet(viewsets.ModelViewSet):
     serializer_class = SetorSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        # Qualquer usuário lê os setores da empresa; só o admin cria, edita
+        # (inclusive desativa) ou exclui.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated()]
+        return [IsAdmin()]
 
     def get_queryset(self):
         usuario = self.request.user
@@ -39,3 +47,13 @@ class SetorViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(id_empresa=self.request.user.id_empresa)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        setor = serializer.save()
+        # Setor inativo não mantém equipamentos operando (eles gerariam OS
+        # preventivas e alertas IoT). Reativar o setor não reativa os equipamentos.
+        if not setor.ativo:
+            setor.equipamentos.exclude(status=Equipamento.Status.INATIVO).update(
+                status=Equipamento.Status.INATIVO
+            )

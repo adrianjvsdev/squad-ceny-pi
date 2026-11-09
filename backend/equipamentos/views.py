@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions
+from usuarios.permissions import IsAdmin
 from .models import Equipamento, TipoEquipamento
 from .serializers import EquipamentoSerializer, TipoEquipamentoSerializer
 
@@ -18,7 +19,13 @@ class TipoEquipamentoViewSet(viewsets.ModelViewSet):
 
 class EquipamentoViewSet(viewsets.ModelViewSet):
     serializer_class = EquipamentoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        # Qualquer usuário lê os equipamentos que enxerga; só o admin cria,
+        # edita (inclusive desativa) ou exclui.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated()]
+        return [IsAdmin()]
 
     def get_queryset(self):
         return Equipamento.objects.visiveis_para(self.request.user)

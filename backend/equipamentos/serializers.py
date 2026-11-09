@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from empresas.validators import validar_mesma_empresa
+from ordens_servico.models import OrdemServico
 from .models import Equipamento, TipoEquipamento
 
 
@@ -8,6 +9,7 @@ class TipoEquipamentoSerializer(serializers.ModelSerializer):
         model = TipoEquipamento
         fields = "__all__"
         read_only_fields = ["id_tipo", "id_empresa"]
+        extra_kwargs = {"nome": {"max_length": 40}}
 
 
 class EquipamentoSerializer(serializers.ModelSerializer):
@@ -34,6 +36,7 @@ class EquipamentoSerializer(serializers.ModelSerializer):
             "tem_iot",
         ]
         read_only_fields = ["id_equipamento", "ultima_manutencao", "proxima_manutencao"]
+        extra_kwargs = {"nome": {"max_length": 40}}
 
     def validate_id_setor(self, value):
         user = self.context['request'].user
@@ -54,3 +57,30 @@ class EquipamentoSerializer(serializers.ModelSerializer):
                 "O tipo de equipamento deve pertencer à sua empresa.",
             )
         return value
+
+    def validate(self, attrs):
+        # Cobre criação, mudança de setor e reativação: em setor inativo o
+        # equipamento só pode existir inativo.
+        setor = attrs.get("id_setor", getattr(self.instance, "id_setor", None))
+        status = attrs.get(
+            "status", getattr(self.instance, "status", Equipamento.Status.ATIVO)
+        )
+        if setor is not None and not setor.ativo and status != Equipamento.Status.INATIVO:
+            raise serializers.ValidationError(
+                {"id_setor": "Este setor está inativo. Reative o setor antes de ter equipamentos ativos nele."}
+            )
+
+        desativando = (
+            self.instance is not None
+            and self.instance.status != Equipamento.Status.INATIVO
+            and status == Equipamento.Status.INATIVO
+        )
+        if desativando:
+            em_aberto = (
+                OrdemServico.objects.em_aberto().filter(id_equipamento=self.instance).count()
+            )
+            if em_aberto:
+                raise serializers.ValidationError(
+                    {"status": f"Não é possível desativar: o equipamento tem {em_aberto} OS em aberto. Conclua ou cancele as OS antes."}
+                )
+        return attrs
