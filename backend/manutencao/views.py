@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 
 from equipamentos.models import Equipamento
+from usuarios.permissions import IsAdmin
 
 from .iot_Mock import ler_sensores
 from .models import PlanoManutencao, AnomaliaIoT
@@ -11,7 +12,13 @@ from .services import calcular_status_geral
 
 class PlanoManutencaoViewSet(viewsets.ModelViewSet):
     serializer_class = PlanoManutencaoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        # Qualquer usuário lê os planos que enxerga; só o admin agenda,
+        # edita ou exclui.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated()]
+        return [IsAdmin()]
 
     def get_queryset(self):
         return PlanoManutencao.objects.visiveis_para(self.request.user)

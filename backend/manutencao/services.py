@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 from django.utils import timezone
+from notificacoes.services import NotificacaoService
 from ordens_servico.models import OrdemServico
 
 from .models import PlanoManutencao
@@ -42,6 +43,7 @@ def criar_os_preventiva(plano: PlanoManutencao) -> OrdemServico:
     plano.proxima_execucao = timezone.localdate() + timedelta(days=plano.periodicidade_dias)
     plano.save(update_fields=["proxima_execucao"])
 
+    NotificacaoService.notificar_os_sistema(ordem)
     logger.info("OS Preventiva criada: #%s", ordem.id_os)
     return ordem
 

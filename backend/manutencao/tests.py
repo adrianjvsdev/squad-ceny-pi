@@ -5,19 +5,22 @@ from unittest.mock import patch
 
 from django.utils import timezone
 
+from config.celery import app as celery_app
 from config.testutils import (
     BaseTestCase,
     Cenario,
     criar_equipamento,
     criar_setor,
+    criar_usuario,
     vincular,
 )
 from manutencao.iot_Mock import simular_dados_iot
 from manutencao.models import AnomaliaIoT, PlanoManutencao
 from manutencao.services import criar_os_preditiva, criar_os_preventiva
 from manutencao.tasks import processar_anomalias_iot, verificar_manutencoes_preventivas
+from notificacoes.models import Notificacao
 from ordens_servico.models import OrdemServico
-from usuarios.models import UsuarioSetor
+from usuarios.models import Usuario, UsuarioSetor
 
 
 def criar_plano(equipamento, setor=None, **kwargs):
@@ -199,6 +202,20 @@ class PlanoManutencaoViewSetTests(BaseTestCase):
 
     def test_sem_autenticacao_401(self):
         self.assertEqual(self.cliente().get(self.URL).status_code, 401)
+
+    def test_nao_admin_nao_cria_edita_nem_exclui_plano(self):
+        url = f"{self.URL}{self.p_a.pk}/"
+        for usuario in (self.c.operador, self.c.tecnico):
+            client = self.cliente(usuario)
+            self.assertEqual(client.post(self.URL, self._payload(), format="json").status_code, 403)
+            self.assertEqual(client.patch(url, {"descricao": "x"}, format="json").status_code, 403)
+            self.assertEqual(client.delete(url).status_code, 403)
+            # leitura continua liberada dentro da visibilidade
+            self.assertEqual(client.get(url).status_code, 200)
+
+        self.p_a.refresh_from_db()
+        self.assertEqual(self.p_a.descricao, "Lubrificar")
+        self.assertEqual(PlanoManutencao.objects.count(), 3)
 
 
 class IoTStatusViewSetTests(BaseTestCase):
@@ -420,6 +437,35 @@ class ServicosOSTests(BaseTestCase):
             plano.proxima_execucao, timezone.localdate() + timedelta(days=30)
         )
         self.assertIsNone(plano.ultima_manutencao)
+
+    def test_os_preventiva_notifica_os_admins_ativos_da_empresa(self):
+        outro_admin = criar_usuario(self.c.empresa, Usuario.Perfil.ADMIN)
+        criar_usuario(self.c.empresa, Usuario.Perfil.ADMIN, is_active=False)
+        Cenario()  # admin de outra empresa nao recebe
+
+        ordem = sem_stdout(criar_os_preventiva, criar_plano(self.c.equipamento))
+
+        notificacoes = Notificacao.objects.filter(id_os=ordem)
+        self.assertEqual(
+            {n.id_usuario for n in notificacoes}, {self.c.admin, outro_admin}
+        )
+        n = notificacoes.first()
+        self.assertEqual(n.tipo, Notificacao.Tipo.OS_ABERTA)
+        self.assertEqual(n.titulo, f"OS #{ordem.id_os} aguardando aprovação")
+        self.assertEqual(
+            n.mensagem, f"Gerada automaticamente pelo sistema: {ordem.titulo}"
+        )
+
+    def test_os_preditiva_nao_notifica(self):
+        sem_stdout(criar_os_preditiva, criar_anomalia(self.c.equipamento, "alta"))
+        self.assertFalse(Notificacao.objects.exists())
+
+
+class AgendadorTests(BaseTestCase):
+    def test_preventivas_verificadas_uma_vez_por_hora(self):
+        agenda = celery_app.conf.beat_schedule["verificar-manutencoes-preventivas"]
+        self.assertEqual(agenda["schedule"].minute, {0})
+        self.assertEqual(agenda["schedule"].hour, set(range(24)))
 
 
 class TasksTests(BaseTestCase):

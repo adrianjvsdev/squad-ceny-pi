@@ -42,8 +42,7 @@ class NotificacaoService:
         """Avisa os demais admins da empresa que uma OS esta aguardando decisao.
 
         So e chamado ao criar uma OS pela API (sempre com solicitante: o
-        usuario autenticado); OS geradas pelo sistema (preventiva/IoT) nao
-        passam por aqui.
+        usuario autenticado); OS geradas pelo sistema usam notificar_os_sistema.
         """
         if not ordem.requer_aprovacao_admin:
             return
@@ -62,6 +61,35 @@ class NotificacaoService:
                 Notificacao.Tipo.OS_ABERTA,
                 f"OS #{ordem.id_os} aguardando aprovação",
                 f"{solicitante.nome} abriu uma OS: {ordem.titulo}",
+            )
+            for admin in admins
+        )
+
+    @staticmethod
+    def notificar_os_sistema(ordem: OrdemServico) -> None:
+        """Avisa os admins da empresa do equipamento que o sistema gerou uma
+        OS (ex.: preventiva agendada) que aguarda decisao. Sem isso a OS fica
+        parada na fila, porque nao ha solicitante para disparar o aviso."""
+        if not ordem.requer_aprovacao_admin or ordem.id_equipamento is None:
+            return
+
+        empresa_id = ordem.id_equipamento.empresa_id
+        if empresa_id is None:
+            return
+
+        admins = Usuario.objects.filter(
+            perfil=Usuario.Perfil.ADMIN,
+            id_empresa_id=empresa_id,
+            is_active=True,
+        )
+
+        Notificacao.objects.bulk_create(
+            NotificacaoService._nova(
+                admin,
+                ordem,
+                Notificacao.Tipo.OS_ABERTA,
+                f"OS #{ordem.id_os} aguardando aprovação",
+                f"Gerada automaticamente pelo sistema: {ordem.titulo}",
             )
             for admin in admins
         )

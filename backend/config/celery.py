@@ -12,7 +12,8 @@ app.autodiscover_tasks()
 app.conf.beat_schedule = {
     'verificar-manutencoes-preventivas': {
         'task': 'manutencao.tasks.verificar_manutencoes_preventivas',
-        'schedule': crontab(hour='*/1'),  #ta verificando a cada hora, pode ser mudado depois
+        # minute=0 -> uma vez por hora (so hour='*/1' rodaria a cada minuto).
+        'schedule': crontab(minute=0),
     },
     'simular-anomalias-iot': {
         'task': 'manutencao.tasks.processar_anomalias_iot',
