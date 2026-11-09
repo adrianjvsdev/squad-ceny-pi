@@ -3,6 +3,7 @@ from contextlib import redirect_stdout
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from config.celery import app as celery_app
@@ -15,7 +16,7 @@ from config.testutils import (
     vincular,
 )
 from manutencao.iot_Mock import simular_dados_iot
-from manutencao.models import AnomaliaIoT, PlanoManutencao
+from manutencao.models import AnomaliaIoT, ExecucaoPlano, PlanoManutencao
 from manutencao.services import criar_os_preditiva, criar_os_preventiva
 from manutencao.tasks import processar_anomalias_iot, verificar_manutencoes_preventivas
 from notificacoes.models import Notificacao
@@ -459,6 +460,59 @@ class ServicosOSTests(BaseTestCase):
     def test_os_preditiva_nao_notifica(self):
         sem_stdout(criar_os_preditiva, criar_anomalia(self.c.equipamento, "alta"))
         self.assertFalse(Notificacao.objects.exists())
+
+
+class ModeloAgendamentoTests(BaseTestCase):
+    def setUp(self):
+        self.c = Cenario()
+        self.plano = criar_plano(self.c.equipamento, self.c.setor)
+        self.data = timezone.localdate()
+
+    def criar_execucao(self, **kwargs):
+        kwargs.setdefault("id_plano", self.plano)
+        kwargs.setdefault("id_equipamento", self.c.equipamento)
+        kwargs.setdefault("data_prevista", self.data)
+        kwargs.setdefault("status", ExecucaoPlano.Status.GERADA)
+        return ExecucaoPlano.objects.create(**kwargs)
+
+    def test_plano_sem_os_campos_novos_recebe_os_padroes(self):
+        self.plano.refresh_from_db()
+        self.assertTrue(self.plano.ativo)
+        self.assertEqual(self.plano.dias_antecedencia, 0)
+        self.assertEqual(self.plano.prioridade, OrdemServico.Prioridade.MEDIA)
+        self.assertEqual(self.plano.instrucoes, "")
+        self.assertIsNone(self.plano.tecnico_sugerido)
+        self.assertIsNone(self.plano.duracao_estimada_horas)
+        self.assertIsNone(self.plano.aviso_enviado_para)
+
+    def test_ocorrencia_nao_pode_ser_registrada_duas_vezes(self):
+        self.criar_execucao()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.criar_execucao(status=ExecucaoPlano.Status.PULADA)
+        # outra data do mesmo plano e permitida
+        self.criar_execucao(data_prevista=self.data + timedelta(days=30))
+        self.assertEqual(self.plano.execucoes.count(), 2)
+
+    def test_excluir_a_os_preserva_o_registro_da_execucao(self):
+        ordem = OrdemServico.objects.create(
+            titulo="x", tipo_manutencao="preventiva", id_equipamento=self.c.equipamento
+        )
+        execucao = self.criar_execucao(id_os=ordem)
+        ordem.delete()
+        execucao.refresh_from_db()
+        self.assertIsNone(execucao.id_os)
+
+    def test_excluir_o_plano_exclui_as_execucoes(self):
+        self.criar_execucao()
+        self.plano.delete()
+        self.assertFalse(ExecucaoPlano.objects.exists())
+
+    def test_remover_o_vinculo_do_tecnico_limpa_a_sugestao(self):
+        self.plano.tecnico_sugerido = self.c.vinculo_tecnico
+        self.plano.save()
+        self.c.vinculo_tecnico.delete()
+        self.plano.refresh_from_db()
+        self.assertIsNone(self.plano.tecnico_sugerido)
 
 
 class AgendadorTests(BaseTestCase):
