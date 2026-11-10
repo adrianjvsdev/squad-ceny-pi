@@ -104,6 +104,10 @@ class PlanoManutencaoViewSetTests(BaseTestCase):
                 "id_plano", "descricao", "tipo", "periodicidade_dias",
                 "proxima_execucao", "ultima_manutencao", "id_equipamento",
                 "equipamento_tag", "equipamento_nome", "id_setor", "setor_nome",
+                # agendamento (aba Preventivas)
+                "ativo", "dias_antecedencia", "prioridade", "tecnico_sugerido",
+                "tecnico_nome", "duracao_estimada_horas", "instrucoes",
+                "id_os_em_aberto", "situacao",
             },
         )
         self.assertEqual(resp.data["equipamento_tag"], self.c.equipamento.tag)

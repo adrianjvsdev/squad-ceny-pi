@@ -16,6 +16,19 @@ class PlanoManutencaoQuerySet(models.QuerySet):
         setores_ids = usuario.usuariosetor_set.values_list("id_setor_id", flat=True)
         return queryset.filter(id_setor__in=setores_ids)
 
+    def com_situacao(self):
+        """Anota a OS do plano ainda em aberto (a mais antiga) e a data
+        prevista da ocorrencia dela, usadas para calcular a situacao do plano."""
+        em_aberto = OrdemServico.objects.em_aberto().filter(
+            plano_origem=models.OuterRef("pk")
+        ).order_by("data_abertura")
+        return self.annotate(
+            id_os_em_aberto=models.Subquery(em_aberto.values("id_os")[:1]),
+            data_os_em_aberto=models.Subquery(
+                em_aberto.values("execucao_plano__data_prevista")[:1]
+            ),
+        )
+
 
 class PlanoManutencao(models.Model):
     class Tipo(models.TextChoices):

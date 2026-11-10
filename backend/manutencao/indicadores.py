@@ -108,7 +108,7 @@ def montar_agenda(planos, inicio, fim, hoje=None):
 
     itens = []
     execucoes = ExecucaoPlano.objects.filter(
-        id_plano__in=planos, data_prevista__range=(inicio, fim)
+        id_plano__in=planos.values("pk"), data_prevista__range=(inicio, fim)
     ).select_related(
         "id_os",
         "id_plano__id_equipamento",
@@ -138,7 +138,7 @@ def _aderencia(planos, hoje, dias):
     tolerancia = settings.PREVENTIVA_TOLERANCIA_DIAS
     avaliadas = list(
         ExecucaoPlano.objects.filter(
-            id_plano__in=planos,
+            id_plano__in=planos.values("pk"),
             data_prevista__gte=hoje - timedelta(days=dias),
             data_prevista__lt=hoje - timedelta(days=tolerancia),
         )
@@ -157,7 +157,7 @@ def _atrasadas(planos, hoje):
     """Ocorrencias com data prevista no passado e nada concluido: OS gerada
     ainda em aberto + ocorrencias que nem chegaram a ser geradas."""
     geradas_em_aberto = ExecucaoPlano.objects.filter(
-        id_plano__in=planos,
+        id_plano__in=planos.values("pk"),
         status=ExecucaoPlano.Status.GERADA,
         data_prevista__lt=hoje,
         id_os__status__in=EM_ABERTO,
