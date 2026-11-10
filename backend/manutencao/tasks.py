@@ -2,8 +2,7 @@ import logging
 
 from celery import shared_task
 from django.utils import timezone
-from .models import PlanoManutencao
-from .services import criar_os_preventiva, criar_os_preditiva
+from .services import avisar_planos_vencendo, criar_os_preditiva, gerar_preventivas_vencidas
 from .iot_Mock import simular_dados_iot
 
 logger = logging.getLogger(__name__)
@@ -12,18 +11,12 @@ logger = logging.getLogger(__name__)
 def verificar_manutencoes_preventivas():
     """
     Task que roda a cada hora.
-    Verifica quais manutenções preventivas estão vencidas.
+    Gera as OS das preventivas vencidas (equipamento inativo e plano pausado
+    nao geram) e avisa os planos que estao para vencer.
     """
-    # Equipamento inativo nao gera OS preventiva automatica.
-    planos = PlanoManutencao.objects.filter(tipo="preventiva").exclude(
-        id_equipamento__status="inativo"
-    )
-
-    for plano in planos:
-        if plano.proxima_execucao <= timezone.now().date():
-            logger.info("Gerando OS Preventiva para %s", plano.id_equipamento.tag)
-            criar_os_preventiva(plano)
-    
+    hoje = timezone.localdate()
+    gerar_preventivas_vencidas(hoje)
+    avisar_planos_vencendo(hoje)
     return "Verificação de manutenções preventivas concluída"
 
 

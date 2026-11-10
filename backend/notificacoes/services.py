@@ -5,17 +5,17 @@ from .models import Notificacao
 
 
 class NotificacaoService:
-    """Centraliza a emissao de notificacoes de ordens de servico."""
+    """Centraliza a emissao de notificacoes de ordens de servico e planos."""
 
     @staticmethod
     def _nova(
         usuario: Usuario,
-        ordem: OrdemServico,
+        ordem: OrdemServico | None,
         tipo: str,
         titulo: str,
         mensagem: str,
     ) -> Notificacao:
-        """Monta (sem salvar) uma notificacao push ligada a uma OS."""
+        """Monta (sem salvar) uma notificacao push, ligada a uma OS quando houver."""
         return Notificacao(
             id_usuario=usuario,
             id_os=ordem,
@@ -73,16 +73,6 @@ class NotificacaoService:
         if not ordem.requer_aprovacao_admin or ordem.id_equipamento is None:
             return
 
-        empresa_id = ordem.id_equipamento.empresa_id
-        if empresa_id is None:
-            return
-
-        admins = Usuario.objects.filter(
-            perfil=Usuario.Perfil.ADMIN,
-            id_empresa_id=empresa_id,
-            is_active=True,
-        )
-
         Notificacao.objects.bulk_create(
             NotificacaoService._nova(
                 admin,
@@ -91,7 +81,44 @@ class NotificacaoService:
                 f"OS #{ordem.id_os} aguardando aprovação",
                 f"Gerada automaticamente pelo sistema: {ordem.titulo}",
             )
-            for admin in admins
+            for admin in NotificacaoService._admins_ativos(
+                ordem.id_equipamento.empresa_id
+            )
+        )
+
+    @staticmethod
+    def notificar_plano_vencendo(plano, hoje) -> None:
+        """Avisa os admins da empresa e o tecnico sugerido de que a proxima
+        ocorrencia de um plano preventivo esta chegando."""
+        equipamento = plano.id_equipamento
+        destinatarios = list(NotificacaoService._admins_ativos(equipamento.empresa_id))
+        if plano.tecnico_sugerido_id is not None:
+            tecnico = plano.tecnico_sugerido.id_usuario
+            if tecnico.is_active and tecnico not in destinatarios:
+                destinatarios.append(tecnico)
+
+        dias = (plano.proxima_execucao - hoje).days
+        quando = {0: "hoje", 1: "amanhã"}.get(dias, f"em {dias} dias")
+        Notificacao.objects.bulk_create(
+            NotificacaoService._nova(
+                usuario,
+                None,
+                Notificacao.Tipo.PLANO_VENCENDO,
+                f"Preventiva vence {quando}",
+                f"{equipamento.tag} - {plano.descricao} "
+                f"(prevista para {plano.proxima_execucao:%d/%m/%Y}).",
+            )
+            for usuario in destinatarios
+        )
+
+    @staticmethod
+    def _admins_ativos(empresa_id):
+        if empresa_id is None:
+            return Usuario.objects.none()
+        return Usuario.objects.filter(
+            perfil=Usuario.Perfil.ADMIN,
+            id_empresa_id=empresa_id,
+            is_active=True,
         )
 
     @staticmethod

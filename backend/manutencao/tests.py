@@ -1,6 +1,6 @@
 import io
 from contextlib import redirect_stdout
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from django.db import IntegrityError, transaction
@@ -420,11 +420,13 @@ class ServicosOSTests(BaseTestCase):
 
     def test_criar_os_preventiva(self):
         plano = criar_plano(self.c.equipamento, periodicidade_dias=30)
-        ordem = sem_stdout(criar_os_preventiva, plano)
+        proxima_original = plano.proxima_execucao
+        ordem = sem_stdout(criar_os_preventiva, plano, date(2030, 1, 15))
 
         self.assertEqual(ordem.titulo, f"Manutenção Preventiva - {self.c.equipamento.nome}")
         self.assertEqual(
-            ordem.descricao, "Manutenção preventiva automática\n\nLubrificar"
+            ordem.descricao,
+            "Manutenção preventiva automática\n\nLubrificar\n\nData prevista: 15/01/2030",
         )
         self.assertEqual(ordem.tipo_manutencao, "preventiva")
         self.assertEqual(ordem.prioridade, "media")
@@ -433,18 +435,36 @@ class ServicosOSTests(BaseTestCase):
         self.assertIsNone(ordem.solicitante)
         self.assertEqual(ordem.status, "aberta")
 
+        execucao = ExecucaoPlano.objects.get()
+        self.assertEqual(execucao.id_os, ordem)
+        self.assertEqual(execucao.data_prevista, date(2030, 1, 15))
+        self.assertEqual(execucao.status, ExecucaoPlano.Status.GERADA)
+
+        # O calendario e avancado por quem chama (ver GeracaoTests).
         plano.refresh_from_db()
-        self.assertEqual(
-            plano.proxima_execucao, timezone.localdate() + timedelta(days=30)
-        )
+        self.assertEqual(plano.proxima_execucao, proxima_original)
         self.assertIsNone(plano.ultima_manutencao)
+
+    def test_os_preventiva_usa_prioridade_e_instrucoes_do_plano(self):
+        plano = criar_plano(
+            self.c.equipamento, prioridade="alta", instrucoes="1. Desligar\n2. Lubrificar"
+        )
+        ordem = sem_stdout(criar_os_preventiva, plano, date(2030, 1, 15))
+        self.assertEqual(ordem.prioridade, "alta")
+        self.assertEqual(
+            ordem.descricao,
+            "Manutenção preventiva automática\n\nLubrificar\n\n"
+            "Instruções:\n1. Desligar\n2. Lubrificar\n\nData prevista: 15/01/2030",
+        )
 
     def test_os_preventiva_notifica_os_admins_ativos_da_empresa(self):
         outro_admin = criar_usuario(self.c.empresa, Usuario.Perfil.ADMIN)
         criar_usuario(self.c.empresa, Usuario.Perfil.ADMIN, is_active=False)
         Cenario()  # admin de outra empresa nao recebe
 
-        ordem = sem_stdout(criar_os_preventiva, criar_plano(self.c.equipamento))
+        ordem = sem_stdout(
+            criar_os_preventiva, criar_plano(self.c.equipamento), timezone.localdate()
+        )
 
         notificacoes = Notificacao.objects.filter(id_os=ordem)
         self.assertEqual(
@@ -553,8 +573,10 @@ class TasksTests(BaseTestCase):
         self.assertIsNone(ordem.solicitante)
 
         plano.refresh_from_db()
+        # Calendario ancorado no plano: vencido ha 5 dias, ciclo de 30 -> hoje + 25
+        # (antes era hoje + 30, e o calendario escorregava a cada atraso).
         self.assertEqual(
-            plano.proxima_execucao, timezone.localdate() + timedelta(days=30)
+            plano.proxima_execucao, timezone.localdate() + timedelta(days=25)
         )
         # A ultima manutencao so e registrada quando a OS for concluida.
         self.assertIsNone(plano.ultima_manutencao)
