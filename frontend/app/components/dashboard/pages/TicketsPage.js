@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { C, PRIORIDADE_LABELS } from "@/lib/constants";
+import { formatarData } from "@/lib/datas";
 import { listEquipamentos } from "@/lib/equipamentos";
 import { getSetores } from "@/lib/setores";
 import { getUsuarioSetores } from "@/lib/usuarios";
@@ -35,9 +36,10 @@ const TIPO_LABELS = {
   preditiva: "Inspeção",
 };
 
+// Datas só-dia (ex.: proxima_manutencao) como data local; antes apareciam
+// um dia antes por serem lidas como UTC.
 function formatDate(dt) {
-  if (!dt) return "—";
-  return new Date(dt).toLocaleDateString("pt-BR");
+  return formatarData(dt);
 }
 
 function todayInputValue() {
@@ -133,6 +135,11 @@ export function TicketsPage({ userType, profile }) {
           origem: ticket.origem ?? "sistema",
           requerAprovacao: Boolean(ticket.requer_aprovacao_admin),
           relatorio: ticket.relatorio_intervencao ?? "",
+          // OS gerada por plano preventivo: a próxima manutenção vem do plano
+          // (null se a OS não veio de plano ou se o plano está pausado).
+          planoOrigem: ticket.plano_origem ?? null,
+          planoProximaExecucao: ticket.plano_proxima_execucao ?? null,
+          planoTecnicoSugerido: ticket.plano_tecnico_sugerido ?? null,
         };
       }),
     [tickets, equipamentosPorId],
@@ -381,14 +388,16 @@ export function TicketsPage({ userType, profile }) {
     if (!selected?.id_os) return;
     setErroAprovacao(null);
 
-    if (!proximaManutencao) {
+    // Em OS de plano ativo a data vem do plano (o backend ignora a enviada).
+    const dataDoPlano = selected.planoProximaExecucao;
+    if (!dataDoPlano && !proximaManutencao) {
       setErroAprovacao("Informe a data da proxima manutencao.");
       return;
     }
 
     setProcessandoConclusao(true);
     try {
-      const payload = { proxima_manutencao: proximaManutencao };
+      const payload = dataDoPlano ? {} : { proxima_manutencao: proximaManutencao };
       const relatorio = relatorioConclusao.trim();
       if (relatorio) payload.relatorio_intervencao = relatorio;
 
@@ -563,9 +572,11 @@ export function TicketsPage({ userType, profile }) {
               key={ticket.id}
               onClick={() => {
                 setSelected(ticket);
-                setTecnicoSelecionado(
-                  ticket.tecnicoVinculoId ? String(ticket.tecnicoVinculoId) : "",
-                );
+                // Sem técnico ainda, a aprovação já vem com o sugerido pelo plano.
+                const tecnicoInicial =
+                  ticket.tecnicoVinculoId ||
+                  (ticket.requerAprovacao ? ticket.planoTecnicoSugerido : null);
+                setTecnicoSelecionado(tecnicoInicial ? String(tecnicoInicial) : "");
                 setRelatorioConclusao(ticket.relatorio ?? "");
                 setProximaManutencao(ticket.proximaManutencao ?? "");
                 setErroAprovacao(null);
@@ -688,6 +699,12 @@ export function TicketsPage({ userType, profile }) {
                       </option>
                     ))}
                   </Select>
+                  {selected.planoTecnicoSugerido &&
+                    tecnicoSelecionado === String(selected.planoTecnicoSugerido) && (
+                      <span style={{ fontSize: "0.72rem", color: C.gray500, marginTop: -4 }}>
+                        Técnico sugerido pelo plano de manutenção preventiva.
+                      </span>
+                    )}
                   <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                     <Btn
                       variant="ghost"
@@ -746,17 +763,39 @@ export function TicketsPage({ userType, profile }) {
                     style={{ padding: "0.6rem 0.85rem", border: `1px solid ${C.gray300}`, borderRadius: 4, fontSize: "0.9rem", resize: "vertical", outline: "none" }}
                   />
                 </div>
-                <Input
-                  label="Próxima manutenção"
-                  type="date"
-                  value={proximaManutencao}
-                  min={todayInputValue()}
-                  onChange={(e) => setProximaManutencao(e.target.value)}
-                  error={!proximaManutencao ? "Obrigatorio para concluir a OS." : null}
-                />
+                {selected.planoProximaExecucao ? (
+                  <div
+                    style={{
+                      padding: "0.65rem 0.85rem",
+                      background: C.blueLight,
+                      border: `1px solid ${C.blueLight2}`,
+                      borderRadius: 6,
+                      fontSize: "0.8rem",
+                      color: C.gray700,
+                    }}
+                  >
+                    <div style={{ fontSize: "0.68rem", fontWeight: 600, color: C.gray500, marginBottom: 2 }}>
+                      PRÓXIMA MANUTENÇÃO
+                    </div>
+                    <strong>{formatarData(selected.planoProximaExecucao)}</strong> — definida pelo plano
+                    de manutenção preventiva que gerou esta OS.
+                  </div>
+                ) : (
+                  <Input
+                    label="Próxima manutenção"
+                    type="date"
+                    value={proximaManutencao}
+                    min={todayInputValue()}
+                    onChange={(e) => setProximaManutencao(e.target.value)}
+                    error={!proximaManutencao ? "Obrigatorio para concluir a OS." : null}
+                  />
+                )}
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
                   <Btn
-                    disabled={processandoConclusao || !proximaManutencao}
+                    disabled={
+                      processandoConclusao ||
+                      (!selected.planoProximaExecucao && !proximaManutencao)
+                    }
                     onClick={handleConcluirSelecionada}
                   >
                     {processandoConclusao ? "Concluindo..." : "Concluir OS"}

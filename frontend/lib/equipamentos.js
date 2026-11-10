@@ -90,6 +90,19 @@ export function mapStatusUIParaBackend(statusUI) {
   return mapa[statusUI] || statusUI;
 }
 
+// A próxima manutenção é a mais cedo entre a registrada no equipamento (ao
+// concluir uma OS) e a dos planos ativos. Datas AAAA-MM-DD comparam como texto.
+function maisCedo(...datas) {
+  return datas.filter(Boolean).sort()[0] ?? null;
+}
+
+// Equipamento já enriquecido com a próxima data dos planos atualizada (ex.:
+// depois de agendar), sem recarregar a tabela nem o IoT.
+export function comProximaDoPlano(equip, proximaDoPlano) {
+  const proximaISO = maisCedo(equip.proximaRegistradaISO, proximaDoPlano);
+  return { ...equip, nextMaint: formatarData(proximaISO), nextMaintISO: proximaISO };
+}
+
 export function enriquecerEquipamento(
   equipamento,
   tipo,
@@ -101,10 +114,7 @@ export function enriquecerEquipamento(
    * Transforma campos do backend para o formato esperado pelo frontend.
    * proximaDoPlano: próxima execução (AAAA-MM-DD) dos planos ativos, ou null.
    */
-  // A próxima manutenção é a mais cedo entre a registrada no equipamento
-  // (ao concluir uma OS) e a dos planos ativos.
-  const proximaISO =
-    [equipamento.proxima_manutencao, proximaDoPlano].filter(Boolean).sort()[0] ?? null;
+  const proximaISO = maisCedo(equipamento.proxima_manutencao, proximaDoPlano);
 
   return {
     // IDs
@@ -134,6 +144,8 @@ export function enriquecerEquipamento(
     lastMaint: formatarData(equipamento.ultima_manutencao),
     nextMaint: formatarData(proximaISO),
     nextMaintISO: proximaISO,
+    // Registrada no equipamento ao concluir uma OS (sem a dos planos).
+    proximaRegistradaISO: equipamento.proxima_manutencao ?? null,
 
     // Dados IoT em tempo real (se disponível)
     ...(iotStatus && {

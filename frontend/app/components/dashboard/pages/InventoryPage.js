@@ -13,7 +13,12 @@ import {
 } from "@/app/components/ui";
 import { getSetores, createSetor } from "@/lib/setores";
 import * as equipamentosAPI from "@/lib/equipamentos";
+import { formatarData } from "@/lib/datas";
 import { listPlanos } from "@/lib/planosManutencao";
+import { getUsuarioSetores } from "@/lib/usuarios";
+import { AgendarManutencaoModal } from "../AgendarManutencaoModal";
+import { PlanosDoEquipamento } from "../preventivas/PlanosDoEquipamento";
+import { PrazoManutencao } from "../preventivas/PrazoManutencao";
 
 // Junta ao equipamento da API os dados de manutenção e IoT exibidos na tabela.
 // proximaPorEquip vem de uma única chamada de planos (proximaExecucaoPorEquipamento).
@@ -187,6 +192,14 @@ export function InventoryPage({ userType }) {
   const [tipos, setTipos] = useState({});
   // { [id_equipamento]: próxima execução dos planos ativos }
   const [proximaPorEquip, setProximaPorEquip] = useState({});
+
+  // ─── Agendamento de preventivas ───────────────────────────────────────────
+  const [tecnicos, setTecnicos] = useState([]);
+  // idEquipamento: agendar novo travado nele; plano: editar um existente.
+  const [agendar, setAgendar] = useState({ open: false, idEquipamento: null, plano: null });
+  // Muda a cada agendamento salvo, para recarregar os planos do detalhe.
+  const [versaoPlanos, setVersaoPlanos] = useState(0);
+  const [avisoAgendamento, setAvisoAgendamento] = useState(null);
   const [loadingEquipamentos, setLoadingEquipamentos] = useState(true);
   const [erroEquipamentos, setErroEquipamentos] = useState(null);
 
@@ -281,6 +294,45 @@ export function InventoryPage({ userType }) {
   useEffect(() => {
     carregarEquipamentos();
   }, [carregarEquipamentos]);
+
+  // Técnicos para o "técnico sugerido" do agendamento (só o admin agenda).
+  useEffect(() => {
+    if (userType !== "admin") return;
+    getUsuarioSetores()
+      .then(setTecnicos)
+      .catch((err) => console.error("Erro ao carregar técnicos:", err));
+  }, [userType]);
+
+  // ─── Handlers agendamento ──────────────────────────────────────────────────
+
+  // Formato da API de equipamentos, esperado pelo modal de agendar.
+  const equipamentosParaAgendar = equipamentos.map((eq) => ({
+    id_equipamento: eq.id_equipamento,
+    tag: eq.tag,
+    nome: eq.name,
+    setor_nome: eq.setor,
+    id_setor: eq.id_setor,
+    status: eq.statusBackend,
+  }));
+
+  async function aoSalvarAgendamento(plano) {
+    const editando = Boolean(agendar.plano);
+    setAgendar({ open: false, idEquipamento: null, plano: null });
+    setAvisoAgendamento(
+      editando
+        ? `Agendamento de ${plano.equipamento_tag} atualizado.`
+        : `Manutenção agendada para ${plano.equipamento_tag}. Primeira execução em ${formatarData(plano.proxima_execucao)}. Acompanhe na aba Preventivas.`,
+    );
+    setVersaoPlanos((v) => v + 1);
+
+    // Atualiza só a "próxima manutenção" das linhas, sem recarregar o IoT.
+    const proximas = await carregarProximasDosPlanos();
+    setProximaPorEquip(proximas);
+    const atualizar = (eq) =>
+      equipamentosAPI.comProximaDoPlano(eq, proximas[eq.id_equipamento] ?? null);
+    setEquipamentos((prev) => prev.map(atualizar));
+    setSelectedEquip((atual) => (atual ? atualizar(atual) : atual));
+  }
 
   // ─── Handlers setor ────────────────────────────────────────────────────────
 
@@ -585,6 +637,34 @@ export function InventoryPage({ userType }) {
         )}
       </div>
 
+      {avisoAgendamento && (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            padding: "0.7rem 1rem",
+            background: C.greenLight,
+            border: `1px solid ${C.green}`,
+            borderRadius: 6,
+            color: C.greenDark,
+            fontSize: "0.82rem",
+          }}
+        >
+          <span>{avisoAgendamento}</span>
+          <button
+            type="button"
+            onClick={() => setAvisoAgendamento(null)}
+            aria-label="Fechar aviso"
+            style={{ border: "none", background: "none", cursor: "pointer", color: "inherit", fontSize: "1rem" }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {erroEquipamentos && (
         <div
           style={{
@@ -709,6 +789,7 @@ export function InventoryPage({ userType }) {
                   "Status",
                   "IoT",
                   "Última Manut.",
+                  "Próx. Manut.",
                   "Ações",
                 ].map((h) => (
                   <th
@@ -780,6 +861,12 @@ export function InventoryPage({ userType }) {
                     {eq.lastMaint}
                   </td>
                   <td style={{ padding: "0.75rem 1rem" }}>
+                    <PrazoManutencao
+                      iso={eq.nextMaintISO}
+                      inativo={eq.statusBackend === "inativo"}
+                    />
+                  </td>
+                  <td style={{ padding: "0.75rem 1rem" }}>
                     <div
                       style={{ display: "flex", gap: 6, whiteSpace: "nowrap" }}
                     >
@@ -791,6 +878,26 @@ export function InventoryPage({ userType }) {
                       >
                         Ver
                       </Btn>
+                      {userType === "admin" && (
+                        <Btn
+                          size="sm"
+                          variant="ghost"
+                          icon="calendar"
+                          onClick={() =>
+                            setAgendar({ open: true, idEquipamento: eq.id_equipamento, plano: null })
+                          }
+                          disabled={eq.statusBackend === "inativo" || !eq.id_setor}
+                          title={
+                            eq.statusBackend === "inativo"
+                              ? "Equipamento inativo não gera OS automática"
+                              : !eq.id_setor
+                                ? "Equipamento sem setor não pode ser agendado"
+                                : "Agendar manutenção preventiva"
+                          }
+                        >
+                          Agendar
+                        </Btn>
+                      )}
                       {userType === "admin" && (
                         <Btn
                           size="sm"
@@ -884,6 +991,26 @@ export function InventoryPage({ userType }) {
                 </div>
               ))}
             </div>
+            <PlanosDoEquipamento
+              key={`${selectedEquip.id_equipamento}-${versaoPlanos}`}
+              idEquipamento={selectedEquip.id_equipamento}
+              podeAgendar={selectedEquip.statusBackend !== "inativo" && Boolean(selectedEquip.id_setor)}
+              onAgendar={
+                userType === "admin"
+                  ? () =>
+                      setAgendar({
+                        open: true,
+                        idEquipamento: selectedEquip.id_equipamento,
+                        plano: null,
+                      })
+                  : undefined
+              }
+              onEditar={
+                userType === "admin"
+                  ? (plano) => setAgendar({ open: true, idEquipamento: null, plano })
+                  : undefined
+              }
+            />
             {selectedEquip.iot && (
               <div
                 style={{
@@ -959,6 +1086,17 @@ export function InventoryPage({ userType }) {
           </div>
         )}
       </Modal>
+
+      {/* Agendar / editar manutenção preventiva (o mesmo da aba Preventivas) */}
+      <AgendarManutencaoModal
+        open={agendar.open}
+        plano={agendar.plano}
+        idEquipamentoInicial={agendar.idEquipamento}
+        equipamentos={equipamentosParaAgendar}
+        tecnicos={tecnicos}
+        onClose={() => setAgendar({ open: false, idEquipamento: null, plano: null })}
+        onSalvo={aoSalvarAgendamento}
+      />
 
       {/* Setor Modal */}
       <Modal
