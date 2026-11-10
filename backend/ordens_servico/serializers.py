@@ -3,6 +3,7 @@ from rest_framework import serializers
 from empresas.validators import validar_mesma_empresa
 from equipamentos.models import Equipamento
 from .models import OrdemServico, TriagemIA
+from .services import OrdemServicoService
 from .triagem_ia import (
     TAMANHO_MAX_JUSTIFICATIVA,
     TAMANHO_MAX_TEXTO,
@@ -49,6 +50,10 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
     equipamento_nome = serializers.CharField(source="id_equipamento.nome", read_only=True)
     origem = serializers.ReadOnlyField()
     requer_aprovacao_admin = serializers.ReadOnlyField()
+    # Quando a OS veio de um plano: data que o plano define para a proxima
+    # manutencao (null se o plano estiver pausado) e o tecnico sugerido.
+    plano_proxima_execucao = serializers.SerializerMethodField()
+    plano_tecnico_sugerido = serializers.SerializerMethodField()
     # Aceito so na criacao (ver update); na leitura e null quando nao houve triagem.
     triagem_ia = TriagemIASerializer(required=False, allow_null=True)
 
@@ -80,6 +85,9 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
             "origem",
             "requer_aprovacao_admin",
             "triagem_ia",
+            "plano_origem",
+            "plano_proxima_execucao",
+            "plano_tecnico_sugerido",
         ]
         read_only_fields = [
             "id_os",
@@ -89,6 +97,7 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
             "proxima_manutencao",
             "timestamp_retorno_operacao",
             "solicitante",
+            "plano_origem",
         ]
 
     def validate_id_equipamento(self, value):
@@ -117,6 +126,15 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
         if obj.tecnico_id is None:
             return None
         return obj.tecnico.id_usuario_id
+
+    def get_plano_proxima_execucao(self, obj):
+        proxima = OrdemServicoService.proxima_pelo_plano(obj)
+        return proxima.isoformat() if proxima is not None else None
+
+    def get_plano_tecnico_sugerido(self, obj):
+        if obj.plano_origem_id is None:
+            return None
+        return obj.plano_origem.tecnico_sugerido_id
 
     def create(self, validated_data):
         triagem = validated_data.pop("triagem_ia", None)

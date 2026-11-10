@@ -94,14 +94,29 @@ class OrdemServicoService:
         return ordem
 
     @staticmethod
+    def proxima_pelo_plano(ordem):
+        """Proxima manutencao definida pelo plano que gerou a OS, ou None se
+        a OS nao veio de um plano ativo (ai o tecnico informa a data)."""
+        if ordem.plano_origem_id is None or not ordem.plano_origem.ativo:
+            return None
+        return ordem.plano_origem.proxima_execucao
+
+    @staticmethod
     def concluir(ordem, relatorio=None, proxima_manutencao=None):
-        """Conclui uma OS em andamento e registra o relatorio opcional."""
+        """Conclui uma OS em andamento e registra o relatorio opcional.
+
+        Em OS de plano ativo a proxima manutencao vem do calendario do plano
+        e a data enviada e ignorada (na tela o campo e so informativo)."""
         if ordem.status != OrdemServico.Status.EM_ANDAMENTO:
             raise ValueError("Apenas OS em andamento podem ser concluidas.")
 
-        proxima_manutencao = OrdemServicoService._normalizar_proxima_manutencao(
-            proxima_manutencao
-        )
+        proxima_do_plano = OrdemServicoService.proxima_pelo_plano(ordem)
+        if proxima_do_plano is not None:
+            proxima_manutencao = proxima_do_plano
+        else:
+            proxima_manutencao = OrdemServicoService._normalizar_proxima_manutencao(
+                proxima_manutencao
+            )
         agora = timezone.now()
         ordem.status = OrdemServico.Status.CONCLUIDA
         if ordem.data_inicio is None:

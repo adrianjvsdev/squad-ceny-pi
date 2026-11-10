@@ -16,6 +16,7 @@ class OrdemServicoQuerySet(models.QuerySet):
             "tecnico",
             "tecnico__id_usuario",
             "id_equipamento",
+            "plano_origem",
         )
         if usuario.perfil == Usuario.Perfil.ADMIN:
             return queryset.filter(id_equipamento__id_setor__id_empresa=usuario.id_empresa)

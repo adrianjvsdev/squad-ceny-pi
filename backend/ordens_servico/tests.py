@@ -26,7 +26,8 @@ CAMPOS_OS = {
     "relatorio_intervencao", "timestamp_retorno_operacao", "solicitante",
     "solicitante_nome", "solicitante_perfil", "tecnico", "tecnico_usuario_id",
     "id_equipamento", "equipamento_tag", "equipamento_nome", "origem",
-    "requer_aprovacao_admin", "triagem_ia",
+    "requer_aprovacao_admin", "triagem_ia", "plano_origem",
+    "plano_proxima_execucao", "plano_tecnico_sugerido",
 }
 
 
@@ -118,6 +119,45 @@ class VisibilidadeTests(OSBase):
         self.os_a.save()
         resp = self.cliente(self.c.admin).get(f"{URL}{self.os_a.pk}/")
         self.assertEqual(set(resp.data), CAMPOS_COM_TECNICO)
+
+    def test_campos_do_plano_de_origem(self):
+        url = f"{URL}{self.os_a.pk}/"
+        sem_plano = self.cliente(self.c.admin).get(url).data
+        self.assertEqual(
+            (sem_plano["plano_origem"], sem_plano["plano_proxima_execucao"],
+             sem_plano["plano_tecnico_sugerido"]),
+            (None, None, None),
+        )
+
+        plano = PlanoManutencao.objects.create(
+            descricao="Lubrificar", tipo="preventiva", periodicidade_dias=30,
+            proxima_execucao=timezone.localdate() + timedelta(days=5),
+            id_equipamento=self.c.equipamento, id_setor=self.c.setor,
+            tecnico_sugerido=self.c.vinculo_tecnico,
+        )
+        self.os_a.plano_origem = plano
+        self.os_a.save()
+        dados = self.cliente(self.c.admin).get(url).data
+        self.assertEqual(dados["plano_origem"], plano.pk)
+        self.assertEqual(dados["plano_proxima_execucao"], futuro(5))
+        self.assertEqual(dados["plano_tecnico_sugerido"], self.c.vinculo_tecnico.pk)
+
+        plano.ativo = False
+        plano.save()
+        dados = self.cliente(self.c.admin).get(url).data
+        self.assertIsNone(dados["plano_proxima_execucao"])
+
+    def test_plano_origem_e_somente_leitura(self):
+        plano = PlanoManutencao.objects.create(
+            descricao="x", tipo="preventiva", periodicidade_dias=30,
+            proxima_execucao=timezone.localdate(), id_equipamento=self.c.equipamento,
+        )
+        resp = self.cliente(self.c.admin).patch(
+            f"{URL}{self.os_a.pk}/", {"plano_origem": plano.pk}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.os_a.refresh_from_db()
+        self.assertIsNone(self.os_a.plano_origem)
 
 
 class OrigemTests(OSBase):
@@ -760,24 +800,48 @@ class ConcluirTests(OSBase):
         )
         self.assertEqual(resp.status_code, 200)
 
-    def test_conclui_os_preventiva_registra_ultima_manutencao_no_plano(self):
-        plano = PlanoManutencao.objects.create(
+    def criar_plano(self, **kwargs):
+        kwargs.setdefault("proxima_execucao", timezone.localdate() + timedelta(days=30))
+        return PlanoManutencao.objects.create(
             descricao="Lubrificar", tipo="preventiva", periodicidade_dias=30,
-            proxima_execucao=timezone.localdate() + timedelta(days=30),
-            id_equipamento=self.c.equipamento, id_setor=self.c.setor,
+            id_equipamento=self.c.equipamento, id_setor=self.c.setor, **kwargs,
         )
+
+    def test_conclui_os_preventiva_registra_ultima_manutencao_no_plano(self):
+        plano = self.criar_plano()
         ordem = self.em_andamento(plano_origem=plano)
 
         resp = self.patch(
             self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro()}
         )
         self.assertEqual(resp.status_code, 200)
-        self.assertNotIn("plano_origem", resp.data)
+        self.assertEqual(resp.data["plano_origem"], plano.pk)
 
         plano.refresh_from_db()
         ordem.refresh_from_db()
         self.assertIsNotNone(plano.ultima_manutencao)
         self.assertEqual(plano.ultima_manutencao, ordem.data_fim)
+
+    def test_os_de_plano_ativo_usa_a_data_do_plano_e_ignora_a_enviada(self):
+        plano = self.criar_plano(proxima_execucao=timezone.localdate() + timedelta(days=12))
+        for dados in ({}, {"proxima_manutencao": futuro(90)}):
+            ordem = self.em_andamento(plano_origem=plano)
+            resp = self.patch(self.c.tecnico, ordem, "concluir", dados)
+            self.assertEqual(resp.status_code, 200, dados)
+            self.assertEqual(resp.data["proxima_manutencao"], futuro(12))
+            self.c.equipamento.refresh_from_db()
+            self.assertEqual(self.c.equipamento.proxima_manutencao.isoformat(), futuro(12))
+
+    def test_os_de_plano_pausado_exige_a_data_como_sem_plano(self):
+        plano = self.criar_plano(ativo=False)
+        ordem = self.em_andamento(plano_origem=plano)
+        resp = self.patch(self.c.tecnico, ordem, "concluir", {})
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.data, {"detail": "Informe a data da proxima manutencao."})
+
+        resp = self.patch(self.c.tecnico, ordem, "concluir", {"proxima_manutencao": futuro(7)})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["proxima_manutencao"], futuro(7))
 
     def test_conclui_os_sem_plano_origem_nao_toca_em_nenhum_plano(self):
         ordem = self.em_andamento()
