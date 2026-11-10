@@ -13,12 +13,11 @@ import {
 } from "@/app/components/ui";
 import { getSetores, createSetor } from "@/lib/setores";
 import * as equipamentosAPI from "@/lib/equipamentos";
+import { listPlanos } from "@/lib/planosManutencao";
 
 // Junta ao equipamento da API os dados de manutenção e IoT exibidos na tabela.
-async function enriquecer(equip, tiposMap) {
-  const proximaMaint = await equipamentosAPI.getProximaManutencao(
-    equip.id_equipamento,
-  );
+// proximaPorEquip vem de uma única chamada de planos (proximaExecucaoPorEquipamento).
+async function enriquecer(equip, tiposMap, proximaPorEquip) {
   const iotStatus = equip.tem_iot
     ? await equipamentosAPI.getIoTStatus(equip.id_equipamento)
     : null;
@@ -26,9 +25,21 @@ async function enriquecer(equip, tiposMap) {
   return equipamentosAPI.enriquecerEquipamento(
     equip,
     tiposMap[equip.id_tipo],
-    proximaMaint,
+    proximaPorEquip[equip.id_equipamento] ?? null,
     iotStatus,
   );
+}
+
+// Sem os planos a tabela ainda funciona (só sem a data vinda deles).
+async function carregarProximasDosPlanos() {
+  try {
+    return equipamentosAPI.proximaExecucaoPorEquipamento(
+      await listPlanos({ ativo: "true" }),
+    );
+  } catch (err) {
+    console.error("Erro ao carregar planos de manutenção:", err);
+    return {};
+  }
 }
 
 function EquipmentTooltip({ equip }) {
@@ -174,6 +185,8 @@ export function InventoryPage({ userType }) {
   // ─── Equipamentos e tipos ──────────────────────────────────────────────────
   const [equipamentos, setEquipamentos] = useState([]);
   const [tipos, setTipos] = useState({});
+  // { [id_equipamento]: próxima execução dos planos ativos }
+  const [proximaPorEquip, setProximaPorEquip] = useState({});
   const [loadingEquipamentos, setLoadingEquipamentos] = useState(true);
   const [erroEquipamentos, setErroEquipamentos] = useState(null);
 
@@ -238,22 +251,23 @@ export function InventoryPage({ userType }) {
     setLoadingEquipamentos(true);
     setErroEquipamentos(null);
     try {
-      // 1. Buscar equipamentos
-      const equips = await equipamentosAPI.listEquipamentos();
-
-      // 2. Buscar tipos (para mapear)
-      const tiposData = await equipamentosAPI.listTipos();
+      // 1. Equipamentos, tipos (para mapear) e planos, em paralelo
+      const [equips, tiposData, proximas] = await Promise.all([
+        equipamentosAPI.listEquipamentos(),
+        equipamentosAPI.listTipos(),
+        carregarProximasDosPlanos(),
+      ]);
       const tiposMap = {};
       tiposData.forEach((tipo) => {
         tiposMap[tipo.id_tipo] = tipo;
       });
       setTipos(tiposMap);
+      setProximaPorEquip(proximas);
 
-      // 3. Enriquecer cada equipamento com dados de manutenção + IoT
-      const equipamentosEnriquecidos = [];
-      for (const equip of equips) {
-        equipamentosEnriquecidos.push(await enriquecer(equip, tiposMap));
-      }
+      // 2. Enriquecer cada equipamento com manutenção + IoT (IoT em paralelo)
+      const equipamentosEnriquecidos = await Promise.all(
+        equips.map((equip) => enriquecer(equip, tiposMap, proximas)),
+      );
 
       setEquipamentos(equipamentosEnriquecidos);
     } catch (err) {
@@ -376,7 +390,7 @@ export function InventoryPage({ userType }) {
           editandoEquipId,
           payload,
         );
-        const enriquecido = await enriquecer(atualizado, tipos);
+        const enriquecido = await enriquecer(atualizado, tipos, proximaPorEquip);
         setEquipamentos((prev) =>
           prev.map((e) =>
             e.id_equipamento === enriquecido.id_equipamento ? enriquecido : e,

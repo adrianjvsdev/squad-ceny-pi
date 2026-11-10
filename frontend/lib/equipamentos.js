@@ -1,4 +1,5 @@
 import api from "./api";
+import { formatarData } from "./datas";
 
 export async function listEquipamentos() {
   const { data } = await api.get("/api/equipamentos/");
@@ -35,32 +36,19 @@ export async function criarTipo(tipo) {
   return data;
 }
 
-export async function listPlanosMaintencao(filtros = {}) {
-  // Pode filtrar por id_equipamento se passado
-  const params = new URLSearchParams(filtros);
-  const { data } = await api.get(`/api/planos-manutencao/?${params}`);
-  return data;
-}
-
-export async function getProximaManutencao(idEquipamento) {
-  /**
-   * Busca o próximo plano de manutenção para um equipamento.
-   * Retorna: { proxima_execucao, tipo, periodicidade_dias }
-   */
-  try {
-    const response = await listPlanosMaintencao({
-      id_equipamento: idEquipamento,
-      ordering: "proxima_execucao",
-    });
-
-    if (response.results && response.results.length > 0) {
-      return response.results[0];
+// Próxima execução (AAAA-MM-DD) mais cedo entre os planos ativos de cada
+// equipamento: { [id_equipamento]: "2026-11-20" }. Recebe os planos já
+// carregados numa única chamada, em vez de uma requisição por equipamento.
+export function proximaExecucaoPorEquipamento(planos) {
+  const porEquipamento = {};
+  for (const plano of planos) {
+    if (!plano.ativo) continue;
+    const atual = porEquipamento[plano.id_equipamento];
+    if (!atual || plano.proxima_execucao < atual) {
+      porEquipamento[plano.id_equipamento] = plano.proxima_execucao;
     }
-    return null;
-  } catch (error) {
-    console.error("Erro ao buscar próxima manutenção:", error);
-    return null;
   }
+  return porEquipamento;
 }
 
 //  IOT
@@ -105,13 +93,19 @@ export function mapStatusUIParaBackend(statusUI) {
 export function enriquecerEquipamento(
   equipamento,
   tipo,
-  proximaMaint,
+  proximaDoPlano,
   iotStatus,
 ) {
   /**
    * Enriquece dados do equipamento para exibição no UI.
    * Transforma campos do backend para o formato esperado pelo frontend.
+   * proximaDoPlano: próxima execução (AAAA-MM-DD) dos planos ativos, ou null.
    */
+  // A próxima manutenção é a mais cedo entre a registrada no equipamento
+  // (ao concluir uma OS) e a dos planos ativos.
+  const proximaISO =
+    [equipamento.proxima_manutencao, proximaDoPlano].filter(Boolean).sort()[0] ?? null;
+
   return {
     // IDs
     id: equipamento.tag, // Usa tag como ID visual ("EQ-001")
@@ -137,14 +131,9 @@ export function enriquecerEquipamento(
     iot: equipamento.tem_iot,
 
     // Datas
-    lastMaint: equipamento.ultima_manutencao
-      ? new Date(equipamento.ultima_manutencao).toLocaleDateString("pt-BR")
-      : "—",
-    nextMaint: equipamento.proxima_manutencao
-      ? new Date(equipamento.proxima_manutencao).toLocaleDateString("pt-BR")
-      : proximaMaint?.proxima_execucao
-      ? new Date(proximaMaint.proxima_execucao).toLocaleDateString("pt-BR")
-      : "—",
+    lastMaint: formatarData(equipamento.ultima_manutencao),
+    nextMaint: formatarData(proximaISO),
+    nextMaintISO: proximaISO,
 
     // Dados IoT em tempo real (se disponível)
     ...(iotStatus && {

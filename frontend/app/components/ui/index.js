@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { C, font, Icons } from "@/lib/constants";
 
 // ============================================================
@@ -141,7 +141,54 @@ export function Tooltip({ text, children }) {
 // ============================================================
 // MODAL
 // ============================================================
-export function Modal({ open, onClose, title, children, width = 520 }) {
+// Modais abertos, do mais antigo ao do topo: o Esc fecha só o do topo.
+const pilhaModais = [];
+
+// bloquearFechamento: ignora Esc, clique fora e o X (ex.: enquanto salva).
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  width = 520,
+  bloquearFechamento = false,
+}) {
+  const caixaRef = useRef(null);
+  const fecharRef = useRef(null);
+
+  const fechar = useCallback(() => {
+    if (!bloquearFechamento) onClose?.();
+  }, [bloquearFechamento, onClose]);
+
+  useEffect(() => {
+    fecharRef.current = fechar;
+  }, [fechar]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const id = Symbol("modal");
+    pilhaModais.push(id);
+    function onKeyDown(e) {
+      if (e.key === "Escape" && pilhaModais[pilhaModais.length - 1] === id) {
+        fecharRef.current?.();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      pilhaModais.splice(pilhaModais.indexOf(id), 1);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    caixaRef.current
+      ?.querySelector(
+        "input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+      )
+      ?.focus();
+  }, [open]);
+
   if (!open) return null;
   return (
     <div
@@ -155,9 +202,13 @@ export function Modal({ open, onClose, title, children, width = 520 }) {
         justifyContent: "center",
         padding: 16,
       }}
-      onClick={onClose}
+      onClick={fechar}
     >
       <div
+        ref={caixaRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={typeof title === "string" ? title : undefined}
         style={{
           background: C.white,
           borderRadius: 8,
@@ -189,11 +240,14 @@ export function Modal({ open, onClose, title, children, width = 520 }) {
             {title}
           </h3>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={fechar}
+            aria-label="Fechar"
+            disabled={bloquearFechamento}
             style={{
               border: "none",
               background: "none",
-              cursor: "pointer",
+              cursor: bloquearFechamento ? "not-allowed" : "pointer",
               color: C.gray400,
               display: "flex",
             }}
@@ -261,7 +315,15 @@ export function Input({
 // ============================================================
 // SELECT
 // ============================================================
-export function Select({ label, children, value, onChange }) {
+export function Select({
+  label,
+  children,
+  value,
+  onChange,
+  disabled,
+  error,
+  ...props
+}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && (
@@ -279,19 +341,26 @@ export function Select({ label, children, value, onChange }) {
       <select
         value={value}
         onChange={onChange}
+        disabled={disabled}
+        {...props}
         style={{
           padding: "0.6rem 0.85rem",
-          border: `1px solid ${C.gray300}`,
+          border: `1px solid ${error ? "red" : C.gray300}`,
           borderRadius: 4,
           fontSize: "0.9rem",
           color: C.gray900,
           outline: "none",
           fontFamily: font,
-          background: C.white,
+          background: disabled ? C.gray100 : C.white,
+          cursor: disabled ? "not-allowed" : undefined,
+          ...props.style,
         }}
       >
         {children}
       </select>
+      {error && (
+        <span style={{ fontSize: "0.72rem", color: "red" }}>{error}</span>
+      )}
     </div>
   );
 }
@@ -306,6 +375,8 @@ export function Btn({
   size = "md",
   icon,
   disabled,
+  // Repassados ao <button>: type, title, aria-label, style...
+  ...props
 }) {
   const base = {
     border: "none",
@@ -342,7 +413,8 @@ export function Btn({
     <button
       onClick={onClick}
       disabled={disabled}
-      style={{ ...base, ...sizes[size], ...variants[variant] }}
+      {...props}
+      style={{ ...base, ...sizes[size], ...variants[variant], ...props.style }}
     >
       {icon && <Ico name={icon} size={14} />}
       {children}
