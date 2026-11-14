@@ -210,6 +210,8 @@ celery -A config beat --loglevel=info
 ---
 
 O backend, o Celery Worker e o Celery Beat devem ficar rodando ao mesmo tempo, cada um em seu próprio terminal.
+
+O Beat verifica as manutenções preventivas uma vez por hora e simula leituras IoT a cada 5 minutos. Sem o Celery, gere as OS preventivas com `python manage.py gerar_preventivas`.
 ```
 
 ---
@@ -312,7 +314,29 @@ npm run dev
 | PATCH | `/api/usuarios/{id}/` | Atualiza um usuário |
 | DELETE | `/api/usuarios/{id}/` | Deleta um usuário |
 
+### Planos de manutenção (aba Preventivas)
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| GET | `/api/planos-manutencao/` | Lista os planos com a situação calculada. Filtros: `id_equipamento`, `id_setor`, `tipo`, `ativo`, `tecnico=me` |
+| POST | `/api/planos-manutencao/` | Agenda um plano (admin) |
+| PATCH / DELETE | `/api/planos-manutencao/{id}/` | Edita / exclui um plano (admin) |
+| PATCH | `/api/planos-manutencao/{id}/pausar/` · `retomar/` · `executar-agora/` · `pular-proxima/` | Ações sobre o plano (admin) |
+| GET | `/api/planos-manutencao/{id}/execucoes/` | Histórico de ocorrências do plano |
+| GET | `/api/planos-manutencao/agenda/?inicio=&fim=` | Ocorrências registradas e projetadas (até 366 dias) |
+| GET | `/api/planos-manutencao/indicadores/?dias=` | Aderência, atrasadas, próximos 7 dias, preventiva x corretiva e carga por técnico |
+
+Regras, cálculos e configuração: [docs/manutencao_preventiva.md](docs/manutencao_preventiva.md).
+
 > ⚠️ Todos os endpoints acima exigem o header `Authorization: Bearer <token>`.
+
+### Comandos úteis
+
+| Comando | O que faz |
+|---|---|
+| `python manage.py seed_mock_data --with-os --with-planos` | Dados de demonstração: empresa, usuários, equipamentos, OS e 7 planos preventivos com 3 meses de histórico (recria os planos dos equipamentos `DEMO-EQ-*`) |
+| `python manage.py gerar_preventivas` | Gera as OS preventivas vencidas e os avisos de vencimento, como a task do Celery faria (útil sem worker/beat) |
+| `python manage.py verificar_dados_cruzados` | Auditoria somente leitura de dados inconsistentes entre empresas |
 
 ---
 

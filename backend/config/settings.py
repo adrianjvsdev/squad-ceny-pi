@@ -130,6 +130,12 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GEMINI_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "10"))
 GEMINI_MAX_RETRIES = int(os.getenv("GEMINI_MAX_RETRIES", "2"))
 
+# ─── Manutenções preventivas ──────────────────────────────────────────────────
+# Dias apos a data prevista em que a preventiva concluida ainda conta "no prazo".
+PREVENTIVA_TOLERANCIA_DIAS = int(os.getenv("PREVENTIVA_TOLERANCIA_DIAS", "3"))
+# Com quantos dias de antecedencia os admins sao avisados de que um plano vence.
+PREVENTIVA_AVISO_DIAS = int(os.getenv("PREVENTIVA_AVISO_DIAS", "3"))
+
 # ─── Configuração do JWT ──────────────────────────────────────────────────────
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
