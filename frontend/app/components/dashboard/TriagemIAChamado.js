@@ -145,6 +145,8 @@ export function SeletorModoCriacao({ modo, onChange }) {
 // ============================================================
 export function TriagemIAChamado({ equipamentos, onCriado, onCancelar, onPreencherManual }) {
   const [texto, setTexto] = useState("");
+  // "" = deixar a IA identificar o equipamento pelo texto.
+  const [idEquipamentoEscolhido, setIdEquipamentoEscolhido] = useState("");
   const [analisando, setAnalisando] = useState(false);
   const [erro, setErro] = useState(null);
   const [falhaIA, setFalhaIA] = useState(false);
@@ -153,8 +155,14 @@ export function TriagemIAChamado({ equipamentos, onCriado, onCancelar, onPreench
   const [revisao, setRevisao] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
 
-  async function analisar(textoParaAnalisar = texto) {
-    const valor = textoParaAnalisar.trim();
+  // Inativo não pode receber OS: nem aparece para escolha. Ordenado pela TAG,
+  // assim digitar as letras com o campo em foco já leva ao equipamento.
+  const equipamentosParaEscolha = equipamentos
+    .filter((equipamento) => equipamento.status !== "inativo")
+    .sort((a, b) => a.tag.localeCompare(b.tag, "pt-BR", { numeric: true }));
+
+  async function analisar(idEquipamento = idEquipamentoEscolhido) {
+    const valor = texto.trim();
     if (valor.length < TEXTO_MIN) {
       setErro(`Descreva o problema com pelo menos ${TEXTO_MIN} caracteres.`);
       return;
@@ -165,7 +173,7 @@ export function TriagemIAChamado({ equipamentos, onCriado, onCancelar, onPreench
     setCandidatos([]);
     setAnalisando(true);
     try {
-      const data = await triarOrdemServico(valor);
+      const data = await triarOrdemServico(valor, idEquipamento ? Number(idEquipamento) : null);
       setTriagem(data);
       setRevisao({
         titulo: data.titulo,
@@ -185,9 +193,9 @@ export function TriagemIAChamado({ equipamentos, onCriado, onCancelar, onPreench
   }
 
   function escolherCandidato(equipamento) {
-    const novoTexto = `Equipamento ${equipamento.tag}: ${texto.trim()}`;
-    setTexto(novoTexto);
-    analisar(novoTexto);
+    const id = String(equipamento.id_equipamento);
+    setIdEquipamentoEscolhido(id);
+    analisar(id);
   }
 
   function voltarParaDescricao() {
@@ -233,6 +241,19 @@ export function TriagemIAChamado({ equipamentos, onCriado, onCancelar, onPreench
   if (!triagem) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+        <Select
+          label="Equipamento (opcional)"
+          value={idEquipamentoEscolhido}
+          onChange={(e) => setIdEquipamentoEscolhido(e.target.value)}
+        >
+          <option value="">Deixar a IA identificar pelo texto</option>
+          {equipamentosParaEscolha.map((equipamento) => (
+            <option key={equipamento.id_equipamento} value={String(equipamento.id_equipamento)}>
+              {equipamento.tag} — {equipamento.nome}
+            </option>
+          ))}
+        </Select>
+
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={labelStyle}>DESCREVA O PROBLEMA</label>
           <textarea
@@ -241,13 +262,19 @@ export function TriagemIAChamado({ equipamentos, onCriado, onCancelar, onPreench
             rows={5}
             maxLength={TEXTO_MAX}
             disabled={analisando}
-            placeholder="Ex.: A bomba BOMBA-01 está vazando óleo pelo selo desde ontem, mas ainda funciona."
+            placeholder={
+              idEquipamentoEscolhido
+                ? "Ex.: Temperatura elevada desde ontem à tarde, o alarme disparou duas vezes."
+                : "Ex.: A peneira molecular PM-001 está com temperatura elevada desde ontem."
+            }
             style={textareaStyle}
           />
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
             <span style={{ fontSize: "0.72rem", color: C.gray500 }}>
-              Cite a TAG ou o nome do equipamento. A IA sugere título, descrição e
-              prioridade, e você revisa antes de abrir.
+              {idEquipamentoEscolhido
+                ? "Descreva só o problema. "
+                : "Escolha o equipamento acima ou cite a TAG ou o nome dele no texto. "}
+              A IA sugere título, descrição e prioridade, e você revisa antes de abrir.
             </span>
             <span style={{ fontSize: "0.72rem", color: C.gray400, flexShrink: 0 }}>
               {texto.length}/{TEXTO_MAX}

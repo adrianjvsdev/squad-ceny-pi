@@ -134,9 +134,13 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
 
 
 class TriagemTextoSerializer(serializers.Serializer):
-    """Entrada do preview: o relato livre do usuario."""
+    """Entrada do preview: o relato livre do usuario e, opcionalmente, o
+    equipamento ja escolhido."""
 
     texto = serializers.CharField(min_length=TAMANHO_MIN_TEXTO, max_length=TAMANHO_MAX_TEXTO)
+    # Opcional: equipamento escolhido na tela. A visibilidade e conferida no
+    # servico, que responde "nao encontrado" sem revelar se o id existe.
+    id_equipamento = serializers.IntegerField(required=False, allow_null=True, min_value=1)
 
 
 class EquipamentoTriagemSerializer(serializers.ModelSerializer):

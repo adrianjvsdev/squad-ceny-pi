@@ -18,7 +18,7 @@ POST /api/ordens-servico/              →  cria a OS (fluxo de sempre) + bloco 
 | `backend/ordens_servico/serializers.py` | `TriagemTextoSerializer` (entrada), `TriagemResultadoSerializer` (saída), bloco `triagem_ia` no `OrdemServicoSerializer` |
 | `backend/ordens_servico/views.py` / `urls.py` | `TriagemIAPreviewView` (com throttle próprio) |
 | `backend/config/settings.py` | `GEMINI_*` e a taxa do throttle `triagem_ia` |
-| `backend/ordens_servico/test_triagem_ia.py` | 50 testes (Gemini sempre mockado) |
+| `backend/ordens_servico/test_triagem_ia.py` | 61 testes (Gemini sempre mockado) |
 | `frontend/app/components/dashboard/TriagemIAChamado.js` | Tela de descrever → revisar → confirmar, seletor IA/manual e resumo da triagem no detalhe |
 | `frontend/app/components/dashboard/pages/TicketsPage.js` | Modal "Criar Novo Chamado" com as duas abas; badge e resumo da triagem nos chamados |
 | `frontend/lib/ordensServico.js` / `lib/constants.js` | `triarOrdemServico()`; rótulos de prioridade e tipo de problema; ícone `sparkle` |
@@ -28,8 +28,10 @@ POST /api/ordens-servico/              →  cria a OS (fluxo de sempre) + bloco 
 No modal **Criar Novo Chamado**, a aba **Descrever com IA** é a padrão e
 **Preencher manualmente** mantém o formulário de sempre, sem alteração.
 
-1. O usuário descreve o problema (com contador de 2000 caracteres e aviso de
-   que o texto vai para o Gemini) e clica em **Analisar com IA**.
+1. O usuário escolhe o equipamento (opcional, só os não inativos, ordenados
+   pela TAG), descreve o problema (com contador de 2000 caracteres e aviso de
+   que o texto vai para o Gemini) e clica em **Analisar com IA**. Sem
+   escolher, a IA identifica o equipamento pelo texto.
 2. Na revisão aparecem a prioridade sugerida, o tipo de problema, risco à
    segurança, equipamento parado, a confiança (com alerta abaixo de 60%), a
    justificativa e os campos faltantes. Título, descrição, equipamento e
@@ -38,8 +40,8 @@ No modal **Criar Novo Chamado**, a aba **Descrever com IA** é a padrão e
    segurança, aparece um alerta. Equipamento inativo bloqueia o botão de
    confirmar (o backend bloquearia de qualquer forma).
 4. **Confirmar e abrir chamado** envia o POST de criação com o bloco `triagem_ia`.
-5. Erros: no caso ambíguo, as candidatas viram botões; clicar em uma acrescenta
-   a TAG ao texto e analisa de novo. Em 502/503, aparece **Preencher
+5. Erros: no caso ambíguo, as candidatas viram botões; clicar em uma escolhe o
+   equipamento e analisa de novo, sem mexer no texto. Em 502/503, aparece **Preencher
    manualmente**, que leva o texto digitado para o formulário manual.
 
 Na lista, chamados abertos por IA ganham o badge **Triagem IA**. No detalhe,
@@ -50,17 +52,26 @@ a justificativa e o relato original.
 
 ## Como funciona
 
-1. **Entrada**: `texto` com 10 a 2000 caracteres. Sem equipamento visível ao
-   usuário, a requisição volta 400 antes de chamar o Gemini, para não gastar cota.
+1. **Entrada**: `texto` com 10 a 2000 caracteres e `id_equipamento` opcional.
+   Sem equipamento visível ao usuário, ou com um `id_equipamento` fora dos
+   visíveis, a requisição volta 400 antes de chamar o Gemini, para não gastar cota.
 2. **Chamada ao Gemini** (síncrona), com saída estruturada (`response_json_schema`)
    e raciocínio `LOW` nos modelos Gemini 3.x, que tem menor latência.
 3. **Validação**: enums, tipos e intervalos são conferidos; textos são saneados
    (caracteres de controle, espaços, tamanho máximo) e campos fora do schema são
    descartados. Qualquer desvio conta como resposta inválida e entra no retry.
-4. **Equipamento**: busca só em `Equipamento.objects.visiveis_para(usuario)`, em
-   três etapas: TAG exata, depois nome exato, depois TAG/nome contendo a
-   referência. Zero candidatos → 400 `equipamento_nao_identificado`. Mais de um
-   → 400 `equipamento_ambiguo`, com a lista `candidatos` (só os visíveis).
+4. **Equipamento**:
+   - **Escolhido na tela** (`id_equipamento`): é o equipamento da triagem, mesmo
+     que o texto cite outro. Os dados cadastrados dele (TAG, nome, tipo,
+     fabricante, modelo, setor e status) vão ao Gemini num bloco
+     `<equipamento-{marcador}>`, saneado e com o mesmo marcador aleatório do
+     relato, tratado como dado e não como instrução.
+   - **Pelo texto**: busca só em `Equipamento.objects.visiveis_para(usuario)`,
+     em quatro etapas: TAG exata; TAG escrita de outro jeito (sem diferenciar
+     maiúsculas, separadores ou zeros à esquerda: "pm 1", "PM001" e "peneira
+     PM 001" encontram `PM-001`); nome exato; TAG/nome contendo a referência.
+     Zero candidatos → 400 `equipamento_nao_identificado`. Mais de um → 400
+     `equipamento_ambiguo`, com a lista `candidatos` (só os visíveis).
 5. **Regra de risco** (backend, não depende da IA): se `risco_seguranca=true`, a
    prioridade vira no mínimo `alta`, comparando pela ordem de
    `OrdemServico.Prioridade`. Quando a regra eleva, a justificativa ganha uma nota.
@@ -77,8 +88,8 @@ Para saber se o usuário mudou a prioridade sugerida, compare
 
 | HTTP | `codigo` | Quando |
 |---|---|---|
-| 400 | (erros de campo em `texto`) | texto ausente, curto ou longo demais |
-| 400 | `equipamento_nao_identificado` | IA não apontou equipamento, nenhum visível confere, ou o usuário não vê nenhum equipamento |
+| 400 | (erros de campo em `texto` ou `id_equipamento`) | texto ausente, curto ou longo demais; id que não é inteiro positivo |
+| 400 | `equipamento_nao_identificado` | IA não apontou equipamento, nenhum visível confere, o usuário não vê nenhum equipamento, ou o `id_equipamento` escolhido não está entre os visíveis |
 | 400 | `equipamento_ambiguo` | mais de um equipamento visível confere (vem com `candidatos`) |
 | 429 | — | throttle por usuário do preview |
 | 502 | `resposta_ia_invalida` | Gemini respondeu fora do schema em todas as tentativas |

@@ -140,7 +140,11 @@ class TriagemIAPreviewView(APIView):
         entrada = TriagemTextoSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         try:
-            resultado = interpretar_texto(entrada.validated_data["texto"], request.user)
+            resultado = interpretar_texto(
+                entrada.validated_data["texto"],
+                request.user,
+                entrada.validated_data.get("id_equipamento"),
+            )
         except TriagemIAErro as erro:
             return self._erro(erro)
         return Response(TriagemResultadoSerializer(resultado).data, status=status.HTTP_200_OK)
