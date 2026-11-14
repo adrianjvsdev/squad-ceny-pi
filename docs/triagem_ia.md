@@ -18,7 +18,7 @@ POST /api/ordens-servico/              →  cria a OS (fluxo de sempre) + bloco 
 | `backend/ordens_servico/serializers.py` | `TriagemTextoSerializer` (entrada), `TriagemResultadoSerializer` (saída), bloco `triagem_ia` no `OrdemServicoSerializer` |
 | `backend/ordens_servico/views.py` / `urls.py` | `TriagemIAPreviewView` (com throttle próprio) |
 | `backend/config/settings.py` | `GEMINI_*` e a taxa do throttle `triagem_ia` |
-| `backend/ordens_servico/test_triagem_ia.py` | 61 testes (Gemini sempre mockado) |
+| `backend/ordens_servico/test_triagem_ia.py` | 63 testes (Gemini sempre mockado) |
 | `frontend/app/components/dashboard/TriagemIAChamado.js` | Tela de descrever → revisar → confirmar, seletor IA/manual e resumo da triagem no detalhe |
 | `frontend/app/components/dashboard/pages/TicketsPage.js` | Modal "Criar Novo Chamado" com as duas abas; badge e resumo da triagem nos chamados |
 | `frontend/lib/ordensServico.js` / `lib/constants.js` | `triarOrdemServico()`; rótulos de prioridade e tipo de problema; ícone `sparkle` |

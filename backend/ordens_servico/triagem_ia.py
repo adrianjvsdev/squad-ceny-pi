@@ -561,15 +561,22 @@ def chave_da_tag(valor: str) -> str:
     return re.sub(r"\d+", lambda numero: str(int(numero.group())), compacta)
 
 
-# Trecho com cara de TAG dentro de uma referencia maior ("peneira PM 001").
-_TRECHO_DE_TAG = re.compile(r"[A-Za-z]+[\s_-]*\d+")
+# Uma TAG ocupa poucos blocos de letras/numeros ("DEMO-EQ-001" = 3).
+MAX_BLOCOS_DA_TAG = 4
 
 
 def _por_tag_normalizada(referencia: str, equipamentos: QuerySet[Equipamento]) -> list[int]:
     """Ids dos equipamentos cuja TAG, normalizada, bate com a referencia
-    inteira ou com um trecho dela que tenha letras seguidas de numero."""
+    inteira ou com um trecho dela de ate 4 blocos com letras e numero
+    ("peneira PM 001" -> "PM 001"; "esteira demo eq 1" -> "demo eq 1")."""
+    blocos = re.findall(r"[A-Za-z0-9]+", referencia)
     chaves = {chave_da_tag(referencia)}
-    chaves.update(chave_da_tag(trecho) for trecho in _TRECHO_DE_TAG.findall(referencia))
+    for inicio in range(len(blocos)):
+        for fim in range(inicio + 1, min(inicio + MAX_BLOCOS_DA_TAG, len(blocos)) + 1):
+            trecho = "".join(blocos[inicio:fim])
+            # Numero solto ("1") nao e TAG: casaria com qualquer coisa.
+            if re.search(r"\d", trecho) and re.search(r"[A-Za-z]", trecho):
+                chaves.add(chave_da_tag(trecho))
     chaves.discard("")
     return [
         pk

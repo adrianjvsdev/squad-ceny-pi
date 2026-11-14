@@ -536,6 +536,23 @@ class TagNormalizadaTests(TriagemBase):
                 self.assertEqual(resp.status_code, 200)
                 self.assertEqual(resp.data["equipamento"]["id_equipamento"], esperado.pk)
 
+    def test_tag_com_varios_blocos_no_meio_da_referencia(self):
+        esteira = criar_equipamento(self.c.setor, tag="DEMO-EQ-001", nome="Esteira Principal")
+        for referencia in ("esteira demo eq 1", "a DEMO EQ 001 parou", "demo-eq-01"):
+            with self.subTest(referencia=referencia):
+                self.gerar.return_value = resposta_ia(equipamento_identificado=referencia)
+                resp = self.preview()
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(resp.data["equipamento"]["id_equipamento"], esteira.pk)
+
+    def test_numero_solto_nao_casa_com_tag(self):
+        # "1" sozinho nao vira chave; "peneira 1" vira "PENEIRA1", que nao e "PM1".
+        criar_equipamento(self.c.setor, tag="1", nome="Equipamento legado")
+        self.gerar.return_value = resposta_ia(equipamento_identificado="peneira 1")
+        resp = self.preview()
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.data["codigo"], "equipamento_nao_identificado")
+
     def test_tag_normalizada_respeita_a_visibilidade(self):
         criar_equipamento(self.outra.setor, tag="CP-007", nome="Compressor")
         self.gerar.return_value = resposta_ia(equipamento_identificado="cp 7")
