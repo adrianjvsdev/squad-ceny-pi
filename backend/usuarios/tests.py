@@ -507,3 +507,22 @@ class SeedMockDataTests(BaseTestCase):
 
         tecnico = Usuario.objects.get(email="tecnico@uspe.com")
         self.assertEqual(len(self.cliente(tecnico).get(f"{url}?tecnico=me").data), 3)
+
+        # Pre-diagnosticos de demonstracao: a OS de IoT com um ativo, a do
+        # operador sem (para gerar na tela) e o acerto da IA nas corretivas.
+        diagnostico = self.cliente(admin).get(
+            "/api/ordens-servico/diagnostico/indicadores/"
+        ).data
+        self.assertEqual(
+            {chave: diagnostico[chave] for chave in (
+                "gerados", "descartados", "avaliados",
+                "taxa_acerto_principal", "taxa_acerto_entre_hipoteses",
+            )},
+            {"gerados": 5, "descartados": 1, "avaliados": 4,
+             "taxa_acerto_principal": 0.5, "taxa_acerto_entre_hipoteses": 0.75},
+        )
+        ordens = {o["titulo"]: o for o in self.cliente(admin).get("/api/ordens-servico/").data}
+        self.assertEqual(
+            ordens["DEMO - Anomalia IoT de temperatura"]["diagnostico_causa"]["status"], "ativo"
+        )
+        self.assertIsNone(ordens["DEMO - Falha na esteira"]["diagnostico_causa"])

@@ -17,6 +17,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.db.models import Avg, Count, Q
 from django.utils import timezone
 
 from manutencao.models import AnomaliaIoT, PlanoManutencao
@@ -46,6 +47,8 @@ TAMANHO_MAX_CAUSA_REAL = 1000
 TAMANHO_MAX_CONTEXTO_TEXTO = 400
 OS_ANTERIORES = 5
 DIAS_ANOMALIAS = 7
+PERIODO_PADRAO_INDICADORES_DIAS = 90
+PERIODO_MAXIMO_INDICADORES_DIAS = 365
 
 STATUS_PERMITIDOS = (OrdemServico.Status.ABERTA, OrdemServico.Status.EM_ANDAMENTO)
 
@@ -398,6 +401,57 @@ def _lista_de_textos(valor, campo: str) -> list[str]:
         raise RespostaIAInvalida(f"{campo} nao e lista de textos")
     itens = (limpar_texto(item, TAMANHO_MAX_ITEM) for item in valor)
     return [item for item in itens if item][:MAX_ITENS_LISTA]
+
+
+# ─── Indicadores ─────────────────────────────────────────────────────────────
+
+
+def calcular_indicadores(ordens, dias: int = PERIODO_PADRAO_INDICADORES_DIAS) -> dict:
+    """Acerto da IA nos pre-diagnosticos gerados nos ultimos `dias`, entre as
+    OS de `ordens` (ja filtradas pela visibilidade do usuario).
+
+    So entram na taxa os avaliados (o tecnico informou a causa ao concluir).
+    acerto_principal: a hipotese 1 se confirmou. acerto_entre_hipoteses:
+    qualquer uma das hipoteses se confirmou. Sem avaliados, as taxas sao null."""
+    hipoteses = [
+        DiagnosticoCausa.CausaConfirmada.HIPOTESE_1,
+        DiagnosticoCausa.CausaConfirmada.HIPOTESE_2,
+        DiagnosticoCausa.CausaConfirmada.HIPOTESE_3,
+    ]
+    desde = timezone.now() - timedelta(days=dias)
+    numeros = DiagnosticoCausa.objects.filter(
+        id_os__in=ordens.values("pk"), gerado_em__gte=desde
+    ).aggregate(
+        gerados=Count("pk"),
+        descartados=Count("pk", filter=Q(status=DiagnosticoCausa.Status.DESCARTADO)),
+        avaliados=Count("pk", filter=~Q(causa_confirmada="")),
+        acertos_principal=Count(
+            "pk", filter=Q(causa_confirmada=DiagnosticoCausa.CausaConfirmada.HIPOTESE_1)
+        ),
+        acertos_entre_hipoteses=Count("pk", filter=Q(causa_confirmada__in=hipoteses)),
+        outra_causa=Count(
+            "pk", filter=Q(causa_confirmada=DiagnosticoCausa.CausaConfirmada.OUTRA)
+        ),
+        confianca_media=Avg("confianca"),
+    )
+    avaliados = numeros["avaliados"]
+
+    def taxa(acertos):
+        return round(acertos / avaliados, 3) if avaliados else None
+
+    media = numeros["confianca_media"]
+    return {
+        "periodo_dias": dias,
+        "gerados": numeros["gerados"],
+        "descartados": numeros["descartados"],
+        "avaliados": avaliados,
+        "acertos_principal": numeros["acertos_principal"],
+        "acertos_entre_hipoteses": numeros["acertos_entre_hipoteses"],
+        "outra_causa": numeros["outra_causa"],
+        "taxa_acerto_principal": taxa(numeros["acertos_principal"]),
+        "taxa_acerto_entre_hipoteses": taxa(numeros["acertos_entre_hipoteses"]),
+        "confianca_media": round(media, 2) if media is not None else None,
+    }
 
 
 # ─── Descartar ───────────────────────────────────────────────────────────────

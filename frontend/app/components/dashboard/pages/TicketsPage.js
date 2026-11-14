@@ -13,6 +13,7 @@ import {
   descartarDiagnosticoCausa,
   desativarOrdensAbertas,
   gerarDiagnosticoCausa,
+  indicadoresDiagnosticoCausa,
   iniciarOrdemServico,
   listOrdensServico,
   reabrirOrdemServico,
@@ -28,6 +29,7 @@ import {
   BadgeDiagnostico,
   CausaConfirmadaCampo,
   GerarDiagnosticoCausa,
+  IndicadoresDiagnosticoIA,
   ResumoDiagnosticoCausa,
 } from "@/app/components/dashboard/DiagnosticoCausa";
 
@@ -96,6 +98,8 @@ export function TicketsPage({ userType, profile }) {
   // Conclusão com pré-diagnóstico: hipótese confirmada ("hipotese_N" | "outra").
   const [causaConfirmada, setCausaConfirmada] = useState("");
   const [causaReal, setCausaReal] = useState("");
+  // Acerto da IA nos pré-diagnósticos (faixa só do admin).
+  const [indicadoresIA, setIndicadoresIA] = useState(null);
   const [processandoInicio, setProcessandoInicio] = useState(false);
   const [processandoConclusao, setProcessandoConclusao] = useState(false);
   const [processandoLote, setProcessandoLote] = useState(false);
@@ -215,9 +219,20 @@ export function TicketsPage({ userType, profile }) {
     }
   }, [userType]);
 
+  const carregarIndicadoresIA = useCallback(async () => {
+    if (userType !== "admin") return;
+    try {
+      setIndicadoresIA(await indicadoresDiagnosticoCausa());
+    } catch {
+      // Indicador secundário: sem ele a página continua funcionando.
+      setIndicadoresIA(null);
+    }
+  }, [userType]);
+
   const carregarChamados = useCallback(async () => {
     setLoadingTickets(true);
     setErroTickets(null);
+    carregarIndicadoresIA();
     try {
       const data = await listOrdensServico();
       setTickets(data);
@@ -229,7 +244,7 @@ export function TicketsPage({ userType, profile }) {
     } finally {
       setLoadingTickets(false);
     }
-  }, []);
+  }, [carregarIndicadoresIA]);
 
   useEffect(() => {
     carregarRecursos();
@@ -291,10 +306,12 @@ export function TicketsPage({ userType, profile }) {
 
   async function handleGerarDiagnostico() {
     atualizarOrdem(await gerarDiagnosticoCausa(selected.id_os));
+    carregarIndicadoresIA();
   }
 
   async function handleDescartarDiagnostico(motivo) {
     atualizarOrdem(await descartarDiagnosticoCausa(selected.id_os, motivo));
+    carregarIndicadoresIA();
   }
 
   async function handleCriarChamado() {
@@ -562,6 +579,8 @@ export function TicketsPage({ userType, profile }) {
           </div>
         ))}
       </div>
+
+      <IndicadoresDiagnosticoIA indicadores={indicadoresIA} />
 
       {erroRecursos && (
         <div

@@ -12,7 +12,7 @@ POST /api/ordens-servico/              →  cria a OS (fluxo de sempre) + bloco 
 
 | Arquivo | O que tem |
 |---|---|
-| `backend/ordens_servico/triagem_ia.py` | Serviço: prompt, schema, chamada ao Gemini, retry, validação, resolução do equipamento, regra de risco |
+| `backend/ordens_servico/triagem_ia.py` | Serviço: prompt, schema, chamada ao Gemini (`consultar_gemini`, também usada pelo [pré-diagnóstico](diagnostico_ia.md)), retry, validação, resolução do equipamento, regra de risco |
 | `backend/ordens_servico/models.py` | `TriagemIA` (auditoria 1:1 com a OS, tabela `triagens_ia`) |
 | `backend/ordens_servico/migrations/0005_triagemia.py` | Só cria a tabela nova |
 | `backend/ordens_servico/serializers.py` | `TriagemTextoSerializer` (entrada), `TriagemResultadoSerializer` (saída), bloco `triagem_ia` no `OrdemServicoSerializer` |

@@ -533,3 +533,81 @@ class ListagemTests(DiagnosticoBase):
             ordem = self.criar_os(status=OrdemServico.Status.ABERTA)
             self.gerar(ordem=ordem)
         self.assertEqual(consultas(), base)
+
+
+class IndicadoresTests(DiagnosticoBase):
+    URL = f"{URL_OS}diagnostico/indicadores/"
+
+    def diagnostico(self, ordem=None, confirmada="", status="ativo", confianca=0.6, dias_atras=0):
+        diagnostico = DiagnosticoCausa.objects.create(
+            id_os=ordem or self.criar_os(status=OrdemServico.Status.CONCLUIDA),
+            causa_provavel="X", descricao="X", confianca=confianca, tipo_problema="outro",
+            modelo_usado="m", causa_confirmada=confirmada, status=status,
+            causa_real="Outra" if confirmada == "outra" else "",
+        )
+        if dias_atras:
+            DiagnosticoCausa.objects.filter(pk=diagnostico.pk).update(
+                gerado_em=timezone.now() - timedelta(days=dias_atras)
+            )
+        return diagnostico
+
+    def indicadores(self, usuario=None, **params):
+        return self.cliente(usuario or self.c.admin).get(self.URL, params)
+
+    def test_taxas_de_acerto_so_entre_os_avaliados(self):
+        self.diagnostico(confirmada="hipotese_1", confianca=0.9)
+        self.diagnostico(confirmada="hipotese_1", confianca=0.8)
+        self.diagnostico(confirmada="hipotese_2", confianca=0.5)
+        self.diagnostico(confirmada="outra", confianca=0.4, status="descartado")
+        self.diagnostico(confianca=0.4)  # ainda sem avaliacao
+
+        resp = self.indicadores()
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data,
+            {
+                "periodo_dias": 90, "gerados": 5, "descartados": 1, "avaliados": 4,
+                "acertos_principal": 2, "acertos_entre_hipoteses": 3, "outra_causa": 1,
+                "taxa_acerto_principal": 0.5, "taxa_acerto_entre_hipoteses": 0.75,
+                "confianca_media": 0.6,
+            },
+        )
+
+    def test_sem_avaliados_as_taxas_sao_null(self):
+        resp = self.indicadores()
+        self.assertEqual(resp.data["gerados"], 0)
+        self.assertIsNone(resp.data["taxa_acerto_principal"])
+        self.assertIsNone(resp.data["taxa_acerto_entre_hipoteses"])
+        self.assertIsNone(resp.data["confianca_media"])
+
+    def test_janela_em_dias(self):
+        self.diagnostico(confirmada="hipotese_1", dias_atras=10)
+        self.diagnostico(confirmada="outra", dias_atras=100)
+        self.assertEqual(self.indicadores().data["gerados"], 1)
+        self.assertEqual(self.indicadores(dias=5).data["gerados"], 0)
+        resp = self.indicadores(dias=365)
+        self.assertEqual(resp.data["gerados"], 2)
+        self.assertEqual(resp.data["periodo_dias"], 365)
+
+    def test_dias_invalido_400(self):
+        for valor in ("0", "366", "abc", "-1"):
+            resp = self.indicadores(dias=valor)
+            self.assertEqual(resp.status_code, 400)
+            self.assertEqual(resp.data["detail"], "O período deve ser de 1 a 365 dias.")
+
+    def test_respeita_a_visibilidade(self):
+        self.diagnostico(confirmada="hipotese_1")
+        ordem_de_fora = OrdemServico.objects.create(
+            titulo="Fora", tipo_manutencao="corretiva", status="concluida",
+            id_equipamento=self.outra.equipamento,
+        )
+        self.diagnostico(ordem=ordem_de_fora, confirmada="outra")
+
+        self.assertEqual(self.indicadores().data["gerados"], 1)
+        self.assertEqual(self.indicadores(self.outra.admin).data["gerados"], 1)
+        # O operador do setor tambem le, so do que enxerga.
+        self.assertEqual(self.indicadores(self.c.operador).data["gerados"], 1)
+
+    def test_nao_confunde_com_o_detalhe_de_uma_os(self):
+        self.assertEqual(self.indicadores().status_code, 200)
+        self.assertEqual(self.gerar().status_code, 200)

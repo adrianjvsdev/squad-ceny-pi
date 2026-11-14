@@ -462,3 +462,55 @@ export function CausaConfirmadaCampo({ diagnostico, valor, causaReal, onChange }
     </div>
   );
 }
+
+// Faixa do admin em Chamados: quanto a IA acertou nos pré-diagnósticos
+// avaliados pelos técnicos na conclusão.
+export function IndicadoresDiagnosticoIA({ indicadores }) {
+  if (!indicadores?.gerados) return null;
+  const {
+    periodo_dias: dias,
+    gerados,
+    descartados,
+    avaliados,
+    acertos_principal: acertosPrincipal,
+    taxa_acerto_principal: taxaPrincipal,
+    taxa_acerto_entre_hipoteses: taxaEntreHipoteses,
+  } = indicadores;
+
+  return (
+    <div
+      role="status"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexWrap: "wrap",
+        padding: "0.6rem 0.85rem",
+        background: C.white,
+        border: `1px solid ${C.gray200}`,
+        borderRadius: 8,
+        fontSize: "0.78rem",
+        color: C.gray600,
+      }}
+    >
+      <Ico name="search" size={13} />
+      <strong style={{ color: C.gray800 }}>Pré-diagnóstico por IA</strong>
+      <span>
+        {plural(gerados, "gerado", "gerados")} em {dias} dias
+        {descartados > 0 && <> · {plural(descartados, "descartado", "descartados")}</>}
+      </span>
+      {avaliados > 0 ? (
+        <>
+          <Badge color={corConfianca(taxaPrincipal)}>
+            Acertou a causa principal: {porcentagem(taxaPrincipal)} ({acertosPrincipal} de {avaliados})
+          </Badge>
+          <Badge color="gray">Entre as hipóteses: {porcentagem(taxaEntreHipoteses)}</Badge>
+        </>
+      ) : (
+        <span style={{ color: C.gray400 }}>
+          Nenhum avaliado ainda: o técnico informa a causa ao concluir a OS.
+        </span>
+      )}
+    </div>
+  );
+}

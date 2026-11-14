@@ -65,3 +65,11 @@ export async function descartarDiagnosticoCausa(idOs, motivo) {
   });
   return data;
 }
+
+// Acerto da IA nos pré-diagnósticos dos últimos `dias` (padrão 90).
+export async function indicadoresDiagnosticoCausa(dias = 90) {
+  const { data } = await api.get("/api/ordens-servico/diagnostico/indicadores/", {
+    params: { dias },
+  });
+  return data;
+}

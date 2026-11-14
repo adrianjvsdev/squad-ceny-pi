@@ -13,7 +13,14 @@ from .serializers import (
     TriagemResultadoSerializer,
     TriagemTextoSerializer,
 )
-from .diagnostico_ia import descartar_diagnostico, gerar_diagnostico, pode_gerar
+from .diagnostico_ia import (
+    PERIODO_MAXIMO_INDICADORES_DIAS,
+    PERIODO_PADRAO_INDICADORES_DIAS,
+    calcular_indicadores,
+    descartar_diagnostico,
+    gerar_diagnostico,
+    pode_gerar,
+)
 from .services import OrdemServicoService
 from .triagem_ia import (
     EquipamentoAmbiguo,
@@ -157,6 +164,21 @@ class OrdemServicoViewSet(viewsets.ModelViewSet):
         except TriagemIAErro as erro:
             return resposta_de_falha_da_ia(erro)
         return self._ok(ordem)
+
+    @action(detail=False, methods=["get"], url_path="diagnostico/indicadores")
+    def indicadores_diagnostico(self, request):
+        """Acerto da IA nos pre-diagnosticos da janela ?dias= (padrao 90),
+        entre as OS que o usuario enxerga."""
+        bruto = request.query_params.get("dias")
+        try:
+            dias = int(bruto) if bruto not in (None, "") else PERIODO_PADRAO_INDICADORES_DIAS
+        except ValueError:
+            dias = 0
+        if not 1 <= dias <= PERIODO_MAXIMO_INDICADORES_DIAS:
+            return self._bad_request(
+                f"O período deve ser de 1 a {PERIODO_MAXIMO_INDICADORES_DIAS} dias."
+            )
+        return Response(calcular_indicadores(self.get_queryset(), dias))
 
     @action(detail=True, methods=["patch"], url_path="diagnostico/descartar")
     def descartar_diagnostico(self, request, pk=None):
