@@ -1,23 +1,27 @@
 import io
 from contextlib import redirect_stdout
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import patch
 
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from config.celery import app as celery_app
 from config.testutils import (
     BaseTestCase,
     Cenario,
     criar_equipamento,
     criar_setor,
+    criar_usuario,
     vincular,
 )
 from manutencao.iot_Mock import simular_dados_iot
-from manutencao.models import AnomaliaIoT, PlanoManutencao
+from manutencao.models import AnomaliaIoT, ExecucaoPlano, PlanoManutencao
 from manutencao.services import criar_os_preditiva, criar_os_preventiva
 from manutencao.tasks import processar_anomalias_iot, verificar_manutencoes_preventivas
+from notificacoes.models import Notificacao
 from ordens_servico.models import OrdemServico
-from usuarios.models import UsuarioSetor
+from usuarios.models import Usuario, UsuarioSetor
 
 
 def criar_plano(equipamento, setor=None, **kwargs):
@@ -100,6 +104,10 @@ class PlanoManutencaoViewSetTests(BaseTestCase):
                 "id_plano", "descricao", "tipo", "periodicidade_dias",
                 "proxima_execucao", "ultima_manutencao", "id_equipamento",
                 "equipamento_tag", "equipamento_nome", "id_setor", "setor_nome",
+                # agendamento (aba Preventivas)
+                "ativo", "dias_antecedencia", "prioridade", "tecnico_sugerido",
+                "tecnico_nome", "duracao_estimada_horas", "instrucoes",
+                "id_os_em_aberto", "situacao",
             },
         )
         self.assertEqual(resp.data["equipamento_tag"], self.c.equipamento.tag)
@@ -199,6 +207,20 @@ class PlanoManutencaoViewSetTests(BaseTestCase):
 
     def test_sem_autenticacao_401(self):
         self.assertEqual(self.cliente().get(self.URL).status_code, 401)
+
+    def test_nao_admin_nao_cria_edita_nem_exclui_plano(self):
+        url = f"{self.URL}{self.p_a.pk}/"
+        for usuario in (self.c.operador, self.c.tecnico):
+            client = self.cliente(usuario)
+            self.assertEqual(client.post(self.URL, self._payload(), format="json").status_code, 403)
+            self.assertEqual(client.patch(url, {"descricao": "x"}, format="json").status_code, 403)
+            self.assertEqual(client.delete(url).status_code, 403)
+            # leitura continua liberada dentro da visibilidade
+            self.assertEqual(client.get(url).status_code, 200)
+
+        self.p_a.refresh_from_db()
+        self.assertEqual(self.p_a.descricao, "Lubrificar")
+        self.assertEqual(PlanoManutencao.objects.count(), 3)
 
 
 class IoTStatusViewSetTests(BaseTestCase):
@@ -402,11 +424,13 @@ class ServicosOSTests(BaseTestCase):
 
     def test_criar_os_preventiva(self):
         plano = criar_plano(self.c.equipamento, periodicidade_dias=30)
-        ordem = sem_stdout(criar_os_preventiva, plano)
+        proxima_original = plano.proxima_execucao
+        ordem = sem_stdout(criar_os_preventiva, plano, date(2030, 1, 15))
 
         self.assertEqual(ordem.titulo, f"Manutenção Preventiva - {self.c.equipamento.nome}")
         self.assertEqual(
-            ordem.descricao, "Manutenção preventiva automática\n\nLubrificar"
+            ordem.descricao,
+            "Manutenção preventiva automática\n\nLubrificar\n\nData prevista: 15/01/2030",
         )
         self.assertEqual(ordem.tipo_manutencao, "preventiva")
         self.assertEqual(ordem.prioridade, "media")
@@ -415,11 +439,111 @@ class ServicosOSTests(BaseTestCase):
         self.assertIsNone(ordem.solicitante)
         self.assertEqual(ordem.status, "aberta")
 
+        execucao = ExecucaoPlano.objects.get()
+        self.assertEqual(execucao.id_os, ordem)
+        self.assertEqual(execucao.data_prevista, date(2030, 1, 15))
+        self.assertEqual(execucao.status, ExecucaoPlano.Status.GERADA)
+
+        # O calendario e avancado por quem chama (ver GeracaoTests).
         plano.refresh_from_db()
-        self.assertEqual(
-            plano.proxima_execucao, timezone.localdate() + timedelta(days=30)
-        )
+        self.assertEqual(plano.proxima_execucao, proxima_original)
         self.assertIsNone(plano.ultima_manutencao)
+
+    def test_os_preventiva_usa_prioridade_e_instrucoes_do_plano(self):
+        plano = criar_plano(
+            self.c.equipamento, prioridade="alta", instrucoes="1. Desligar\n2. Lubrificar"
+        )
+        ordem = sem_stdout(criar_os_preventiva, plano, date(2030, 1, 15))
+        self.assertEqual(ordem.prioridade, "alta")
+        self.assertEqual(
+            ordem.descricao,
+            "Manutenção preventiva automática\n\nLubrificar\n\n"
+            "Instruções:\n1. Desligar\n2. Lubrificar\n\nData prevista: 15/01/2030",
+        )
+
+    def test_os_preventiva_notifica_os_admins_ativos_da_empresa(self):
+        outro_admin = criar_usuario(self.c.empresa, Usuario.Perfil.ADMIN)
+        criar_usuario(self.c.empresa, Usuario.Perfil.ADMIN, is_active=False)
+        Cenario()  # admin de outra empresa nao recebe
+
+        ordem = sem_stdout(
+            criar_os_preventiva, criar_plano(self.c.equipamento), timezone.localdate()
+        )
+
+        notificacoes = Notificacao.objects.filter(id_os=ordem)
+        self.assertEqual(
+            {n.id_usuario for n in notificacoes}, {self.c.admin, outro_admin}
+        )
+        n = notificacoes.first()
+        self.assertEqual(n.tipo, Notificacao.Tipo.OS_ABERTA)
+        self.assertEqual(n.titulo, f"OS #{ordem.id_os} aguardando aprovação")
+        self.assertEqual(
+            n.mensagem, f"Gerada automaticamente pelo sistema: {ordem.titulo}"
+        )
+
+    def test_os_preditiva_nao_notifica(self):
+        sem_stdout(criar_os_preditiva, criar_anomalia(self.c.equipamento, "alta"))
+        self.assertFalse(Notificacao.objects.exists())
+
+
+class ModeloAgendamentoTests(BaseTestCase):
+    def setUp(self):
+        self.c = Cenario()
+        self.plano = criar_plano(self.c.equipamento, self.c.setor)
+        self.data = timezone.localdate()
+
+    def criar_execucao(self, **kwargs):
+        kwargs.setdefault("id_plano", self.plano)
+        kwargs.setdefault("id_equipamento", self.c.equipamento)
+        kwargs.setdefault("data_prevista", self.data)
+        kwargs.setdefault("status", ExecucaoPlano.Status.GERADA)
+        return ExecucaoPlano.objects.create(**kwargs)
+
+    def test_plano_sem_os_campos_novos_recebe_os_padroes(self):
+        self.plano.refresh_from_db()
+        self.assertTrue(self.plano.ativo)
+        self.assertEqual(self.plano.dias_antecedencia, 0)
+        self.assertEqual(self.plano.prioridade, OrdemServico.Prioridade.MEDIA)
+        self.assertEqual(self.plano.instrucoes, "")
+        self.assertIsNone(self.plano.tecnico_sugerido)
+        self.assertIsNone(self.plano.duracao_estimada_horas)
+        self.assertIsNone(self.plano.aviso_enviado_para)
+
+    def test_ocorrencia_nao_pode_ser_registrada_duas_vezes(self):
+        self.criar_execucao()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.criar_execucao(status=ExecucaoPlano.Status.PULADA)
+        # outra data do mesmo plano e permitida
+        self.criar_execucao(data_prevista=self.data + timedelta(days=30))
+        self.assertEqual(self.plano.execucoes.count(), 2)
+
+    def test_excluir_a_os_preserva_o_registro_da_execucao(self):
+        ordem = OrdemServico.objects.create(
+            titulo="x", tipo_manutencao="preventiva", id_equipamento=self.c.equipamento
+        )
+        execucao = self.criar_execucao(id_os=ordem)
+        ordem.delete()
+        execucao.refresh_from_db()
+        self.assertIsNone(execucao.id_os)
+
+    def test_excluir_o_plano_exclui_as_execucoes(self):
+        self.criar_execucao()
+        self.plano.delete()
+        self.assertFalse(ExecucaoPlano.objects.exists())
+
+    def test_remover_o_vinculo_do_tecnico_limpa_a_sugestao(self):
+        self.plano.tecnico_sugerido = self.c.vinculo_tecnico
+        self.plano.save()
+        self.c.vinculo_tecnico.delete()
+        self.plano.refresh_from_db()
+        self.assertIsNone(self.plano.tecnico_sugerido)
+
+
+class AgendadorTests(BaseTestCase):
+    def test_preventivas_verificadas_uma_vez_por_hora(self):
+        agenda = celery_app.conf.beat_schedule["verificar-manutencoes-preventivas"]
+        self.assertEqual(agenda["schedule"].minute, {0})
+        self.assertEqual(agenda["schedule"].hour, set(range(24)))
 
 
 class TasksTests(BaseTestCase):
@@ -453,8 +577,10 @@ class TasksTests(BaseTestCase):
         self.assertIsNone(ordem.solicitante)
 
         plano.refresh_from_db()
+        # Calendario ancorado no plano: vencido ha 5 dias, ciclo de 30 -> hoje + 25
+        # (antes era hoje + 30, e o calendario escorregava a cada atraso).
         self.assertEqual(
-            plano.proxima_execucao, timezone.localdate() + timedelta(days=30)
+            plano.proxima_execucao, timezone.localdate() + timedelta(days=25)
         )
         # A ultima manutencao so e registrada quando a OS for concluida.
         self.assertIsNone(plano.ultima_manutencao)

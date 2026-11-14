@@ -478,3 +478,32 @@ class SeedMockDataTests(BaseTestCase):
                 format="json",
             ).status_code == 200
         )
+
+    def test_seed_com_planos_e_idempotente_e_alimenta_os_indicadores(self):
+        from manutencao.models import ExecucaoPlano, PlanoManutencao
+
+        for _ in range(2):
+            call_command(
+                "seed_mock_data", "--with-os", "--with-planos", stdout=io.StringIO()
+            )
+
+        self.assertEqual(PlanoManutencao.objects.count(), 7)
+        self.assertEqual(ExecucaoPlano.objects.count(), 17)
+
+        admin = Usuario.objects.get(email="mariafernanda@uspe.com")
+        url = "/api/planos-manutencao/"
+        situacoes = sorted(p["situacao"] for p in self.cliente(admin).get(url).data)
+        self.assertEqual(
+            situacoes,
+            ["atrasado", "atrasado", "em_dia", "pausado",
+             "vence_em_breve", "vence_em_breve", "vence_em_breve"],
+        )
+        indicadores = self.cliente(admin).get(f"{url}indicadores/").data
+        self.assertEqual(
+            indicadores["aderencia"], {"percentual": 0.688, "no_prazo": 11, "avaliadas": 16}
+        )
+        self.assertEqual(indicadores["atrasadas"], 2)
+        self.assertEqual(indicadores["manutencao_planejada"]["corretivas"], 5)
+
+        tecnico = Usuario.objects.get(email="tecnico@uspe.com")
+        self.assertEqual(len(self.cliente(tecnico).get(f"{url}?tecnico=me").data), 3)
