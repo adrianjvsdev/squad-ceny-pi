@@ -10,7 +10,9 @@ import {
   aprovarOrdemServico,
   concluirOrdemServico,
   criarOrdemServico,
+  descartarDiagnosticoCausa,
   desativarOrdensAbertas,
+  gerarDiagnosticoCausa,
   iniciarOrdemServico,
   listOrdensServico,
   reabrirOrdemServico,
@@ -24,9 +26,10 @@ import {
 } from "@/app/components/dashboard/TriagemIAChamado";
 import {
   BadgeDiagnostico,
+  CausaConfirmadaCampo,
+  GerarDiagnosticoCausa,
   ResumoDiagnosticoCausa,
 } from "@/app/components/dashboard/DiagnosticoCausa";
-import { diagnosticoMock } from "@/lib/diagnosticoMock";
 
 const STATUS_LABELS = {
   aberta: "Planejado",
@@ -90,6 +93,9 @@ export function TicketsPage({ userType, profile }) {
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState("");
   const [relatorioConclusao, setRelatorioConclusao] = useState("");
   const [proximaManutencao, setProximaManutencao] = useState("");
+  // Conclusão com pré-diagnóstico: hipótese confirmada ("hipotese_N" | "outra").
+  const [causaConfirmada, setCausaConfirmada] = useState("");
+  const [causaReal, setCausaReal] = useState("");
   const [processandoInicio, setProcessandoInicio] = useState(false);
   const [processandoConclusao, setProcessandoConclusao] = useState(false);
   const [processandoLote, setProcessandoLote] = useState(false);
@@ -121,8 +127,8 @@ export function TicketsPage({ userType, profile }) {
             PRIORIDADE_LABELS[ticket.prioridade] ?? ticket.prioridade ?? "Baixa",
           prioridadeRaw: ticket.prioridade,
           triagemIA: ticket.triagem_ia ?? null,
-          diagnosticoCausa:
-            ticket.diagnostico_causa ?? diagnosticoMock(ticket),
+          diagnosticoCausa: ticket.diagnostico_causa ?? null,
+          idEquipamento: ticket.id_equipamento ?? null,
           statusRaw: ticket.status,
           status:
             ticket.status === "em_andamento" && atendimentoIniciado
@@ -260,6 +266,36 @@ export function TicketsPage({ userType, profile }) {
     tecnicoEhResponsavel &&
     selected?.statusRaw === "em_andamento" &&
     Boolean(selected?.dataInicio);
+
+  // Pré-diagnóstico: gerar (admin ou técnico atribuído) e descartar (admin)
+  // só com a OS aberta ou em andamento, como no backend.
+  const osEmCurso = ["aberta", "em_andamento"].includes(selected?.statusRaw);
+  const podeGerarDiagnostico =
+    osEmCurso &&
+    !selected?.diagnosticoCausa &&
+    selected?.idEquipamento != null &&
+    (userType === "admin" || tecnicoEhResponsavel);
+  const podeDescartarDiagnostico = osEmCurso && userType === "admin";
+
+  // Troca a OS na lista e no detalhe aberto pela versão devolvida pela API.
+  function atualizarOrdem(atualizada) {
+    setTickets((atuais) =>
+      atuais.map((t) => (t.id_os === atualizada.id_os ? atualizada : t)),
+    );
+    setSelected((atual) =>
+      atual?.id_os === atualizada.id_os
+        ? { ...atual, diagnosticoCausa: atualizada.diagnostico_causa ?? null }
+        : atual,
+    );
+  }
+
+  async function handleGerarDiagnostico() {
+    atualizarOrdem(await gerarDiagnosticoCausa(selected.id_os));
+  }
+
+  async function handleDescartarDiagnostico(motivo) {
+    atualizarOrdem(await descartarDiagnosticoCausa(selected.id_os, motivo));
+  }
 
   async function handleCriarChamado() {
     setErroForm(null);
@@ -401,17 +437,27 @@ export function TicketsPage({ userType, profile }) {
       setErroAprovacao("Informe a data da proxima manutencao.");
       return;
     }
+    if (causaConfirmada === "outra" && !causaReal.trim()) {
+      setErroAprovacao("Descreva a causa encontrada.");
+      return;
+    }
 
     setProcessandoConclusao(true);
     try {
       const payload = dataDoPlano ? {} : { proxima_manutencao: proximaManutencao };
       const relatorio = relatorioConclusao.trim();
       if (relatorio) payload.relatorio_intervencao = relatorio;
+      if (causaConfirmada) {
+        payload.causa_confirmada = causaConfirmada;
+        if (causaConfirmada === "outra") payload.causa_real = causaReal.trim();
+      }
 
       await concluirOrdemServico(selected.id_os, payload);
       setSelected(null);
       setRelatorioConclusao("");
       setProximaManutencao("");
+      setCausaConfirmada("");
+      setCausaReal("");
       await carregarChamados();
     } catch (e) {
       setErroAprovacao(
@@ -622,7 +668,9 @@ export function TicketsPage({ userType, profile }) {
                     <Badge color={urgColor(ticket.urgencia)}>Urgência: {ticket.urgencia}</Badge>
                     <Badge color={statusColor(ticket.status)}>{ticket.status}</Badge>
                     {ticket.triagemIA && <Badge color="purple">Triagem IA</Badge>}
-                    {ticket.diagnosticoCausa && <BadgeDiagnostico />}
+                    {ticket.diagnosticoCausa && (
+                      <BadgeDiagnostico diagnostico={ticket.diagnosticoCausa} />
+                    )}
                   </div>
                   <div style={{ fontWeight: 600, color: C.gray800, fontSize: "0.88rem", marginBottom: 2 }}>
                     {ticket.equip} — {ticket.tipo}
@@ -648,6 +696,8 @@ export function TicketsPage({ userType, profile }) {
           setTecnicoSelecionado("");
           setRelatorioConclusao("");
           setProximaManutencao("");
+          setCausaConfirmada("");
+          setCausaReal("");
         }}
         title={`Chamado ${selected?.id}`}
         width={580}
@@ -686,8 +736,14 @@ export function TicketsPage({ userType, profile }) {
                 prioridadeFinal={selected.prioridadeRaw}
               />
             )}
-            {selected.diagnosticoCausa && (
-              <ResumoDiagnosticoCausa diagnostico={selected.diagnosticoCausa} />
+            {selected.diagnosticoCausa ? (
+              <ResumoDiagnosticoCausa
+                diagnostico={selected.diagnosticoCausa}
+                podeDescartar={podeDescartarDiagnostico}
+                onDescartar={handleDescartarDiagnostico}
+              />
+            ) : (
+              podeGerarDiagnostico && <GerarDiagnosticoCausa onGerar={handleGerarDiagnostico} />
             )}
             {erroAprovacao && (
               <p style={{ margin: 0, fontSize: "0.78rem", color: C.redDark }}>
@@ -799,6 +855,17 @@ export function TicketsPage({ userType, profile }) {
                     min={todayInputValue()}
                     onChange={(e) => setProximaManutencao(e.target.value)}
                     error={!proximaManutencao ? "Obrigatorio para concluir a OS." : null}
+                  />
+                )}
+                {selected.diagnosticoCausa && (
+                  <CausaConfirmadaCampo
+                    diagnostico={selected.diagnosticoCausa}
+                    valor={causaConfirmada}
+                    causaReal={causaReal}
+                    onChange={(valor, real) => {
+                      setCausaConfirmada(valor);
+                      setCausaReal(real);
+                    }}
                   />
                 )}
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
