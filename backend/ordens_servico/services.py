@@ -6,6 +6,7 @@ from equipamentos.models import Equipamento
 from notificacoes.services import NotificacaoService
 from usuarios.models import Usuario
 
+from .diagnostico_ia import registrar_causa_confirmada, validar_causa_confirmada
 from .models import OrdemServico
 from .resolvers import resolver_tecnico
 
@@ -102,13 +103,18 @@ class OrdemServicoService:
         return ordem.plano_origem.proxima_execucao
 
     @staticmethod
-    def concluir(ordem, relatorio=None, proxima_manutencao=None):
+    def concluir(
+        ordem, relatorio=None, proxima_manutencao=None, causa_confirmada=None, causa_real=None
+    ):
         """Conclui uma OS em andamento e registra o relatorio opcional.
 
         Em OS de plano ativo a proxima manutencao vem do calendario do plano
-        e a data enviada e ignorada (na tela o campo e so informativo)."""
+        e a data enviada e ignorada (na tela o campo e so informativo).
+        Com pre-diagnostico, o tecnico pode informar qual hipotese se
+        confirmou (opcional); e conferido antes de concluir."""
         if ordem.status != OrdemServico.Status.EM_ANDAMENTO:
             raise ValueError("Apenas OS em andamento podem ser concluidas.")
+        confirmacao = validar_causa_confirmada(ordem, causa_confirmada, causa_real)
 
         proxima_do_plano = OrdemServicoService.proxima_pelo_plano(ordem)
         if proxima_do_plano is not None:
@@ -137,6 +143,8 @@ class OrdemServicoService:
             campos_atualizados.append("relatorio_intervencao")
 
         ordem.save(update_fields=campos_atualizados)
+        if confirmacao is not None:
+            registrar_causa_confirmada(ordem, confirmacao)
         OrdemServicoService._atualizar_manutencao_equipamento(
             ordem, agora, proxima_manutencao
         )

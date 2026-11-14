@@ -2,7 +2,7 @@ from django.db import transaction
 from rest_framework import serializers
 from empresas.validators import validar_mesma_empresa
 from equipamentos.models import Equipamento
-from .models import OrdemServico, TriagemIA
+from .models import DiagnosticoCausa, OrdemServico, TriagemIA
 from .services import OrdemServicoService
 from .triagem_ia import (
     TAMANHO_MAX_JUSTIFICATIVA,
@@ -41,6 +41,46 @@ class TriagemIASerializer(serializers.ModelSerializer):
         return limpar_texto(value, 100)
 
 
+class DiagnosticoCausaSerializer(serializers.ModelSerializer):
+    """Pre-diagnostico de causa por IA (somente leitura; muda pelas acoes
+    gerar/descartar e pela conclusao da OS). Os 7 primeiros campos sao o
+    formato que o bloco "Diagnostico de causa" do detalhe da OS consome."""
+
+    # null (em vez de omitidos) quando ninguem gerou/descartou, para a tela.
+    gerado_por_nome = serializers.CharField(
+        source="gerado_por.nome", read_only=True, allow_null=True
+    )
+    descartado_por_nome = serializers.CharField(
+        source="descartado_por.nome", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = DiagnosticoCausa
+        fields = [
+            "causa_provavel",
+            "descricao",
+            "confianca",
+            "tipo_problema",
+            "recomendacao",
+            "modelo_usado",
+            "gerado_em",
+            "hipoteses",
+            "verificacoes",
+            "pecas_provaveis",
+            "cuidados_seguranca",
+            "contexto_usado",
+            "gerado_por_nome",
+            "status",
+            "motivo_descarte",
+            "descartado_em",
+            "descartado_por_nome",
+            "causa_confirmada",
+            "causa_real",
+            "confirmado_em",
+        ]
+        read_only_fields = fields
+
+
 class OrdemServicoSerializer(serializers.ModelSerializer):
     solicitante_nome = serializers.CharField(source="solicitante.nome", read_only=True)
     solicitante_perfil = serializers.CharField(source="solicitante.perfil", read_only=True)
@@ -56,6 +96,8 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
     plano_tecnico_sugerido = serializers.SerializerMethodField()
     # Aceito so na criacao (ver update); na leitura e null quando nao houve triagem.
     triagem_ia = TriagemIASerializer(required=False, allow_null=True)
+    # null enquanto ninguem gerou o pre-diagnostico.
+    diagnostico_causa = DiagnosticoCausaSerializer(read_only=True)
 
     class Meta:
         model = OrdemServico
@@ -85,6 +127,7 @@ class OrdemServicoSerializer(serializers.ModelSerializer):
             "origem",
             "requer_aprovacao_admin",
             "triagem_ia",
+            "diagnostico_causa",
             "plano_origem",
             "plano_proxima_execucao",
             "plano_tecnico_sugerido",

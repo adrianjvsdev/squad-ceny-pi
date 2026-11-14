@@ -13,6 +13,7 @@ from .serializers import (
     TriagemResultadoSerializer,
     TriagemTextoSerializer,
 )
+from .diagnostico_ia import descartar_diagnostico, gerar_diagnostico, pode_gerar
 from .services import OrdemServicoService
 from .triagem_ia import (
     EquipamentoAmbiguo,
@@ -29,15 +30,39 @@ MSG_REABRIR_ADMIN = "Apenas administradores podem reabrir ordens de servico."
 MSG_INICIAR_TECNICO = "Apenas o tecnico atribuido pode iniciar esta OS."
 MSG_CONCLUIR_TECNICO = "Apenas o tecnico atribuido pode concluir esta OS."
 MSG_DESATIVAR_ADMIN = "Apenas administradores podem desativar ordens de servico."
+MSG_GERAR_DIAGNOSTICO = (
+    "Apenas o administrador ou o técnico atribuído podem gerar o pré-diagnóstico."
+)
+MSG_DESCARTAR_DIAGNOSTICO = "Apenas administradores podem descartar o pré-diagnóstico."
+
+
+def resposta_de_falha_da_ia(erro):
+    """Erro da IA (triagem ou pre-diagnostico) -> resposta com detail/codigo."""
+    corpo = {"detail": str(erro), "codigo": erro.codigo}
+    if isinstance(erro, EquipamentoAmbiguo):
+        corpo["candidatos"] = EquipamentoTriagemSerializer(erro.candidatos, many=True).data
+
+    if isinstance(erro, (EquipamentoNaoIdentificado, EquipamentoAmbiguo)):
+        codigo_http = status.HTTP_400_BAD_REQUEST
+    elif isinstance(erro, RespostaIAInvalida):
+        codigo_http = status.HTTP_502_BAD_GATEWAY
+    else:  # IAIndisponivel / LimiteIAAtingido
+        codigo_http = status.HTTP_503_SERVICE_UNAVAILABLE
+    return Response(corpo, status=codigo_http)
 
 
 class OrdemServicoViewSet(viewsets.ModelViewSet):
     serializer_class = OrdemServicoSerializer
     permission_classes = [permissions.IsAuthenticated]
+    # So a acao de gerar o pre-diagnostico define um escopo (ver @action);
+    # sem escopo, o ScopedRateThrottle nao limita nada.
+    throttle_scope = None
 
     def get_queryset(self):
         return OrdemServico.objects.visiveis_para(self.request.user).select_related(
-            "triagem_ia"
+            "triagem_ia",
+            "diagnostico_causa__gerado_por",
+            "diagnostico_causa__descartado_por",
         )
 
     def perform_create(self, serializer):
@@ -107,7 +132,39 @@ class OrdemServicoViewSet(viewsets.ModelViewSet):
                 ordem,
                 request.data.get("relatorio_intervencao"),
                 request.data.get("proxima_manutencao"),
+                request.data.get("causa_confirmada"),
+                request.data.get("causa_real"),
             )
+        except ValueError as erro:
+            return self._bad_request(erro)
+        return self._ok(ordem)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="diagnostico",
+        throttle_classes=[ScopedRateThrottle],
+        throttle_scope="diagnostico_ia",
+    )
+    def gerar_diagnostico(self, request, pk=None):
+        ordem = self.get_object()
+        if not pode_gerar(request.user, ordem):
+            return self._forbidden(MSG_GERAR_DIAGNOSTICO)
+        try:
+            gerar_diagnostico(ordem, request.user)
+        except ValueError as erro:
+            return self._bad_request(erro)
+        except TriagemIAErro as erro:
+            return resposta_de_falha_da_ia(erro)
+        return self._ok(ordem)
+
+    @action(detail=True, methods=["patch"], url_path="diagnostico/descartar")
+    def descartar_diagnostico(self, request, pk=None):
+        if not OrdemServicoService.usuario_e_admin(request.user):
+            return self._forbidden(MSG_DESCARTAR_DIAGNOSTICO)
+        ordem = self.get_object()
+        try:
+            descartar_diagnostico(ordem, request.user, request.data.get("motivo"))
         except ValueError as erro:
             return self._bad_request(erro)
         return self._ok(ordem)
@@ -150,14 +207,4 @@ class TriagemIAPreviewView(APIView):
         return Response(TriagemResultadoSerializer(resultado).data, status=status.HTTP_200_OK)
 
     def _erro(self, erro):
-        corpo = {"detail": str(erro), "codigo": erro.codigo}
-        if isinstance(erro, EquipamentoAmbiguo):
-            corpo["candidatos"] = EquipamentoTriagemSerializer(erro.candidatos, many=True).data
-
-        if isinstance(erro, (EquipamentoNaoIdentificado, EquipamentoAmbiguo)):
-            codigo_http = status.HTTP_400_BAD_REQUEST
-        elif isinstance(erro, RespostaIAInvalida):
-            codigo_http = status.HTTP_502_BAD_GATEWAY
-        else:  # IAIndisponivel / LimiteIAAtingido
-            codigo_http = status.HTTP_503_SERVICE_UNAVAILABLE
-        return Response(corpo, status=codigo_http)
+        return resposta_de_falha_da_ia(erro)

@@ -188,3 +188,77 @@ class TriagemIA(models.Model):
 
     def __str__(self):
         return f"Triagem IA da OS#{self.id_os_id} ({self.prioridade_sugerida})"
+
+
+class DiagnosticoCausa(models.Model):
+    """Pre-diagnostico de causa gerado por IA para uma OS (1:1).
+
+    E uma sugestao anexada a OS, nunca uma etapa do fluxo: nao muda o status
+    nem a descricao. O admin pode descarta-lo (com motivo) e o tecnico, ao
+    concluir, informa qual hipotese se confirmou, o que mede o acerto da IA.
+    causa_provavel/descricao/recomendacao/confianca resumem a hipotese
+    principal no formato que a tela de detalhe da OS consome."""
+
+    class Status(models.TextChoices):
+        ATIVO = "ativo", "Ativo"
+        DESCARTADO = "descartado", "Descartado"
+
+    class CausaConfirmada(models.TextChoices):
+        HIPOTESE_1 = "hipotese_1", "Hipótese 1"
+        HIPOTESE_2 = "hipotese_2", "Hipótese 2"
+        HIPOTESE_3 = "hipotese_3", "Hipótese 3"
+        OUTRA = "outra", "Outra causa"
+
+    id_diagnostico = models.AutoField(primary_key=True)
+    id_os = models.OneToOneField(
+        OrdemServico,
+        on_delete=models.CASCADE,
+        related_name="diagnostico_causa",
+        db_column="id_os",
+    )
+    causa_provavel = models.CharField(max_length=200)
+    descricao = models.TextField()
+    recomendacao = models.TextField(blank=True, default="")
+    confianca = models.FloatField(
+        validators=[MinValueValidator(0), MaxValueValidator(1)]
+    )
+    tipo_problema = models.CharField(max_length=20, choices=TriagemIA.TipoProblema.choices)
+    # [{"causa", "evidencia", "confianca"}], da mais para a menos provavel.
+    hipoteses = models.JSONField(default=list)
+    verificacoes = models.JSONField(default=list)
+    pecas_provaveis = models.JSONField(default=list)
+    cuidados_seguranca = models.JSONField(default=list)
+    # O que foi enviado a IA (contagens), para a tela dizer em que se baseou.
+    contexto_usado = models.JSONField(default=dict)
+    modelo_usado = models.CharField(max_length=100)
+    gerado_em = models.DateTimeField(auto_now_add=True)
+    gerado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="diagnosticos_gerados",
+        db_column="id_gerado_por",
+    )
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.ATIVO)
+    motivo_descarte = models.TextField(blank=True, default="")
+    descartado_em = models.DateTimeField(blank=True, null=True)
+    descartado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="diagnosticos_descartados",
+        db_column="id_descartado_por",
+    )
+    causa_confirmada = models.CharField(
+        max_length=12, choices=CausaConfirmada.choices, blank=True, default=""
+    )
+    causa_real = models.TextField(blank=True, default="")
+    confirmado_em = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "diagnosticos_causa"
+
+    def __str__(self):
+        return f"Diagnóstico da OS#{self.id_os_id}: {self.causa_provavel}"

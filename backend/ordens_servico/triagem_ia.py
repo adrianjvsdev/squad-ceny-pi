@@ -344,17 +344,40 @@ def _triar(
 def _consultar_gemini(
     texto: str, contexto: dict, equipamento: Equipamento | None = None
 ) -> dict:
-    """Chama o Gemini com saida estruturada e devolve a resposta ja validada.
+    """Monta o prompt da triagem e devolve a resposta do Gemini ja validada."""
+    marcador = secrets.token_hex(8)
+    conteudo = f"<relato-{marcador}>\n{texto}\n</relato-{marcador}>"
+    if equipamento is not None:
+        conteudo = _bloco_do_equipamento(equipamento, marcador) + "\n" + conteudo
+    return consultar_gemini(
+        PROMPT_SISTEMA.format(marcador=marcador),
+        conteudo,
+        SCHEMA_RESPOSTA,
+        _validar_resposta,
+        contexto,
+    )
 
-    Erros transitorios (timeout, conexao, 408/429/5xx) e respostas fora do
-    schema sao retentados com backoff exponencial ate GEMINI_MAX_RETRIES
-    vezes; erros definitivos (ex.: 400/403, chave invalida) nao.
+
+def consultar_gemini(
+    instrucao: str,
+    conteudo: str,
+    schema: dict,
+    validar,
+    contexto: dict,
+    rotulo: str = "triagem_ia",
+) -> dict:
+    """Chama o Gemini com saida estruturada e devolve `validar(json)`.
+
+    Usado pela triagem e pelo pre-diagnostico. Erros transitorios (timeout,
+    conexao, 408/429/5xx) e respostas fora do schema (RespostaIAInvalida
+    levantada por `validar`) sao retentados com backoff exponencial ate
+    GEMINI_MAX_RETRIES vezes; erros definitivos (ex.: 400/403, chave
+    invalida) nao.
     """
     if not settings.GEMINI_API_KEY:
-        logger.error("triagem_ia erro=configuracao detalhe=GEMINI_API_KEY_ausente")
+        logger.error("%s erro=configuracao detalhe=GEMINI_API_KEY_ausente", rotulo)
         raise IAIndisponivel(MSG_IA_NAO_CONFIGURADA)
 
-    marcador = secrets.token_hex(8)
     cliente = genai.Client(
         api_key=settings.GEMINI_API_KEY,
         http_options=types.HttpOptions(
@@ -362,16 +385,13 @@ def _consultar_gemini(
         ),
     )
     config = types.GenerateContentConfig(
-        system_instruction=PROMPT_SISTEMA.format(marcador=marcador),
+        system_instruction=instrucao,
         response_mime_type="application/json",
-        response_json_schema=SCHEMA_RESPOSTA,
+        response_json_schema=schema,
         thinking_config=_config_de_raciocinio(settings.GEMINI_MODEL),
         # Sem tools: desliga o function calling automatico (ligado por padrao no SDK).
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
-    conteudo = f"<relato-{marcador}>\n{texto}\n</relato-{marcador}>"
-    if equipamento is not None:
-        conteudo = _bloco_do_equipamento(equipamento, marcador) + "\n" + conteudo
 
     total_tentativas = 1 + max(settings.GEMINI_MAX_RETRIES, 0)
     falha: Exception | None = None
@@ -382,7 +402,7 @@ def _consultar_gemini(
             resposta = cliente.models.generate_content(
                 model=settings.GEMINI_MODEL, contents=conteudo, config=config
             )
-            return _validar_resposta(_ler_json(resposta.text))
+            return validar(_ler_json(resposta.text))
         except errors.APIError as erro:
             if erro.code not in CODIGOS_HTTP_TRANSITORIOS:
                 contexto["motivo"] = f"http_{erro.code}"
@@ -399,7 +419,8 @@ def _consultar_gemini(
                 ESPERA_INICIAL_SEGUNDOS * 2 ** (tentativa - 1), ESPERA_MAXIMA_SEGUNDOS
             )
             logger.warning(
-                "triagem_ia retry tentativa=%d motivo=%s detalhe=%s espera_s=%.1f",
+                "%s retry tentativa=%d motivo=%s detalhe=%s espera_s=%.1f",
+                rotulo,
                 tentativa,
                 motivo,
                 falha if isinstance(falha, RespostaIAInvalida) else "-",
