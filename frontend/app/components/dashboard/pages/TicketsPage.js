@@ -21,6 +21,11 @@ import {
   SeletorModoCriacao,
   TriagemIAChamado,
 } from "@/app/components/dashboard/TriagemIAChamado";
+import {
+  BadgeDiagnostico,
+  ResumoDiagnosticoCausa,
+} from "@/app/components/dashboard/DiagnosticoCausa";
+import { diagnosticoMock } from "@/lib/diagnosticoMock";
 
 const STATUS_LABELS = {
   aberta: "Planejado",
@@ -114,6 +119,8 @@ export function TicketsPage({ userType, profile }) {
             PRIORIDADE_LABELS[ticket.prioridade] ?? ticket.prioridade ?? "Baixa",
           prioridadeRaw: ticket.prioridade,
           triagemIA: ticket.triagem_ia ?? null,
+          diagnosticoCausa:
+            ticket.diagnostico_causa ?? diagnosticoMock(ticket),
           statusRaw: ticket.status,
           status:
             ticket.status === "em_andamento" && atendimentoIniciado
@@ -604,6 +611,7 @@ export function TicketsPage({ userType, profile }) {
                     <Badge color={urgColor(ticket.urgencia)}>Urgência: {ticket.urgencia}</Badge>
                     <Badge color={statusColor(ticket.status)}>{ticket.status}</Badge>
                     {ticket.triagemIA && <Badge color="purple">Triagem IA</Badge>}
+                    {ticket.diagnosticoCausa && <BadgeDiagnostico />}
                   </div>
                   <div style={{ fontWeight: 600, color: C.gray800, fontSize: "0.88rem", marginBottom: 2 }}>
                     {ticket.equip} — {ticket.tipo}
@@ -666,6 +674,9 @@ export function TicketsPage({ userType, profile }) {
                 triagem={selected.triagemIA}
                 prioridadeFinal={selected.prioridadeRaw}
               />
+            )}
+            {selected.diagnosticoCausa && (
+              <ResumoDiagnosticoCausa diagnostico={selected.diagnosticoCausa} />
             )}
             {erroAprovacao && (
               <p style={{ margin: 0, fontSize: "0.78rem", color: C.redDark }}>
