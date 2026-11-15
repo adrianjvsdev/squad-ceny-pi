@@ -12,8 +12,12 @@ export async function criarOrdemServico(payload) {
 
 // Preview da triagem por IA: interpreta o texto livre e devolve a triagem para
 // revisao. Nao cria a OS — a confirmacao e feita por criarOrdemServico.
-export async function triarOrdemServico(texto) {
-  const { data } = await api.post("/api/ordens-servico/triagem-ia/", { texto });
+// idEquipamento é opcional: sem ele, a IA identifica o equipamento pelo texto.
+export async function triarOrdemServico(texto, idEquipamento = null) {
+  const { data } = await api.post("/api/ordens-servico/triagem-ia/", {
+    texto,
+    id_equipamento: idEquipamento,
+  });
   return data;
 }
 
@@ -44,5 +48,28 @@ export async function concluirOrdemServico(idOs, payload = {}) {
 
 export async function desativarOrdensAbertas() {
   const { data } = await api.patch("/api/ordens-servico/desativar-abertas/");
+  return data;
+}
+
+// Pré-diagnóstico de causa por IA (admin ou técnico atribuído). Devolve a OS
+// atualizada, com o campo diagnostico_causa preenchido.
+export async function gerarDiagnosticoCausa(idOs) {
+  const { data } = await api.post(`/api/ordens-servico/${idOs}/diagnostico/`);
+  return data;
+}
+
+// Só o admin; o pré-diagnóstico continua visível, marcado como descartado.
+export async function descartarDiagnosticoCausa(idOs, motivo) {
+  const { data } = await api.patch(`/api/ordens-servico/${idOs}/diagnostico/descartar/`, {
+    motivo,
+  });
+  return data;
+}
+
+// Acerto da IA nos pré-diagnósticos dos últimos `dias` (padrão 90).
+export async function indicadoresDiagnosticoCausa(dias = 90) {
+  const { data } = await api.get("/api/ordens-servico/diagnostico/indicadores/", {
+    params: { dias },
+  });
   return data;
 }

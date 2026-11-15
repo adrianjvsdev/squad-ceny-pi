@@ -121,6 +121,7 @@ REST_FRAMEWORK = {
     # (hoje, o preview da triagem por IA, para respeitar a cota do Gemini).
     "DEFAULT_THROTTLE_RATES": {
         "triagem_ia": os.getenv("TRIAGEM_IA_THROTTLE_RATE", "5/min"),
+        "diagnostico_ia": os.getenv("DIAGNOSTICO_IA_THROTTLE_RATE", "5/min"),
     },
 }
 

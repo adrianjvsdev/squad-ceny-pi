@@ -9,13 +9,86 @@ from empresas.models import Empresa, Setor
 from equipamentos.models import Equipamento, TipoEquipamento
 from manutencao.models import ExecucaoPlano, PlanoManutencao
 from notificacoes.models import Notificacao
-from ordens_servico.models import OrdemServico
+from ordens_servico.models import DiagnosticoCausa, OrdemServico
 from usuarios.models import Usuario, UsuarioSetor
 
 # Historico de cada ocorrencia nos planos de demonstracao, em dias relativos a
 # hoje: (NO_PRAZO | FORA_DO_PRAZO, prevista, concluida), (PULADA, prevista,
 # motivo) ou (EM_ABERTO, prevista).
 NO_PRAZO, FORA_DO_PRAZO, PULADA, EM_ABERTO = "no_prazo", "fora_do_prazo", "pulada", "em_aberto"
+
+
+def _hipotese(causa, evidencia, confianca):
+    return {"causa": causa, "evidencia": evidencia, "confianca": confianca}
+
+
+# Pre-diagnosticos das corretivas de demonstracao (na ordem das corretivas):
+# 2 acertos da hipotese principal, 1 da segunda e 1 causa fora das hipoteses
+# (essa tambem descartada pelo admin) -> acerto 50% / entre hipoteses 75%.
+DIAGNOSTICOS_DEMO = (
+    dict(
+        hipoteses=[
+            _hipotese("Desgaste da correia por desalinhamento", "Correia rompida após queda de rendimento relatada.", 0.78),
+            _hipotese("Tensão excessiva da correia", "Conhecimento geral: tensão alta acelera a fadiga.", 0.45),
+        ],
+        verificacoes=["Conferir o alinhamento dos roletes", "Medir a tensão da correia nova"],
+        pecas_provaveis=["Correia transportadora"],
+        cuidados_seguranca=["Bloquear e etiquetar a esteira antes da inspeção"],
+        tipo_problema="mecanico", descricao="Rompimento provavelmente causado por desalinhamento.",
+        confianca=0.74, confirmada="hipotese_1",
+        contexto_usado={"os_anteriores": 0, "anomalias_iot": 2, "iot_simulado": True, "planos": 1, "planos_atrasados": 0},
+    ),
+    dict(
+        hipoteses=[
+            _hipotese("Eletrodo de ignição sujo", "Falhas intermitentes de ignição.", 0.62),
+            _hipotese("Falha no sensor de chama", "Desligamentos logo após a ignição.", 0.55),
+        ],
+        verificacoes=["Limpar e regular o eletrodo", "Testar o sensor de chama"],
+        pecas_provaveis=["Eletrodo de ignição"],
+        cuidados_seguranca=["Aguardar o resfriamento e fechar o gás"],
+        tipo_problema="eletrico", descricao="Ignição falhando por eletrodo ou sensor de chama.",
+        confianca=0.6, confirmada="hipotese_2",
+        contexto_usado={"os_anteriores": 0, "anomalias_iot": 1, "iot_simulado": True, "planos": 2, "planos_atrasados": 1},
+    ),
+    dict(
+        hipoteses=[
+            _hipotese("Selo mecânico gasto", "Vazamento pelo selo com a bomba operando.", 0.81),
+            _hipotese("Eixo com folga", "Conhecimento geral: folga no eixo danifica o selo.", 0.35),
+        ],
+        verificacoes=["Inspecionar as faces do selo", "Medir a folga radial do eixo"],
+        pecas_provaveis=["Selo mecânico", "Junta"],
+        cuidados_seguranca=["Isolar e despressurizar a linha"],
+        tipo_problema="hidraulico", descricao="Vazamento típico de selo mecânico desgastado.",
+        confianca=0.79, confirmada="hipotese_1",
+        contexto_usado={"os_anteriores": 0, "anomalias_iot": 0, "iot_simulado": False, "planos": 1, "planos_atrasados": 0},
+    ),
+    dict(
+        hipoteses=[
+            _hipotese("Falha no CLP da embaladora", "Paradas sem padrão claro.", 0.4),
+        ],
+        verificacoes=["Ler o histórico de alarmes do CLP"],
+        pecas_provaveis=[],
+        cuidados_seguranca=[],
+        tipo_problema="software", descricao="Dados insuficientes; hipótese fraca de falha de controle.",
+        confianca=0.4, confirmada="outra", causa_real="Sensor fotoelétrico desalinhado após limpeza.",
+        motivo_descarte="O sensor estava visivelmente desalinhado; não é falha de CLP.",
+        contexto_usado={"os_anteriores": 0, "anomalias_iot": 0, "iot_simulado": False, "planos": 1, "planos_atrasados": 0},
+    ),
+)
+
+DIAGNOSTICO_IOT_DEMO = dict(
+    hipoteses=[
+        _hipotese("Rolamento do tambor de acionamento sem lubrificação", "Temperatura acima do limite em leituras recentes (IoT simulado).", 0.58),
+        _hipotese("Sobrecarga do motor", "Conhecimento geral: excesso de carga aquece o conjunto.", 0.42),
+    ],
+    verificacoes=["Medir a temperatura do mancal com termômetro infravermelho", "Conferir a corrente do motor"],
+    pecas_provaveis=["Graxa para rolamentos", "Rolamento"],
+    cuidados_seguranca=["Bloquear e etiquetar a esteira antes de tocar no mancal"],
+    tipo_problema="mecanico",
+    descricao="Aquecimento provável no mancal; as leituras de IoT são simuladas e pedem confirmação em campo.",
+    confianca=0.55,
+    contexto_usado={"os_anteriores": 1, "anomalias_iot": 3, "iot_simulado": True, "planos": 1, "planos_atrasados": 0},
+)
 
 
 def _momento(dia, hora):
@@ -26,22 +99,27 @@ class Command(BaseCommand):
     help = (
         "Cria/atualiza dados de mock no banco para testes locais "
         "(empresa, usuarios, setores, tipos, equipamentos e OS). "
-        "--with-planos recria os planos dos equipamentos DEMO-EQ-* com historico."
+        "--with-planos recria os planos dos equipamentos DEMO-EQ-* com historico. "
+        "Os pre-diagnosticos de demonstracao sao gravados direto, sem chamar o Gemini."
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--with-os",
             action="store_true",
-            help="Tambem cria OS de exemplo (operador e IoT).",
+            help=(
+                "Tambem cria OS de exemplo (operador e IoT); a de IoT ganha um "
+                "pre-diagnostico de causa e a do operador fica sem, para gerar na tela."
+            ),
         )
         parser.add_argument(
             "--with-planos",
             action="store_true",
             help=(
                 "Recria os planos preventivos dos equipamentos DEMO-EQ-* com 3 meses "
-                "de historico (para a aba Preventivas). Apaga os planos e as OS "
-                "desses planos que ja existirem nesses equipamentos."
+                "de historico (para a aba Preventivas) e 4 corretivas concluidas com "
+                "pre-diagnostico e causa confirmada (acerto da IA). Apaga os planos e "
+                "as OS desses planos que ja existirem nesses equipamentos."
             ),
         )
 
@@ -204,12 +282,12 @@ class Command(BaseCommand):
             self._criar_plano_com_historico(hoje, **dados)
 
         corretivas = (
-            (eq["esteira"], "DEMO - Corretiva: correia rompida", -80),
-            (eq["caldeira"], "DEMO - Corretiva: falha na ignição", -50),
-            (eq["bomba"], "DEMO - Corretiva: vazamento no selo", -35),
-            (eq["embaladora"], "DEMO - Corretiva: sensor desalinhado", -20),
+            (eq["esteira"], "DEMO - Corretiva: correia rompida", -80, DIAGNOSTICOS_DEMO[0]),
+            (eq["caldeira"], "DEMO - Corretiva: falha na ignição", -50, DIAGNOSTICOS_DEMO[1]),
+            (eq["bomba"], "DEMO - Corretiva: vazamento no selo", -35, DIAGNOSTICOS_DEMO[2]),
+            (eq["embaladora"], "DEMO - Corretiva: sensor desalinhado", -20, DIAGNOSTICOS_DEMO[3]),
         )
-        for equipamento, titulo, dia in corretivas:
+        for equipamento, titulo, dia, diagnostico in corretivas:
             ordem = OrdemServico.objects.create(
                 titulo=titulo,
                 tipo_manutencao=OrdemServico.TipoManutencao.CORRETIVA,
@@ -224,6 +302,7 @@ class Command(BaseCommand):
             OrdemServico.objects.filter(pk=ordem.pk).update(
                 data_abertura=_momento(hoje + timedelta(days=dia), 8)
             )
+            self._criar_diagnostico(ordem, _momento(hoje + timedelta(days=dia), 9), **diagnostico)
 
         self._sincronizar_equipamentos(eq.values())
 
@@ -440,7 +519,7 @@ class Command(BaseCommand):
         )
 
     def _garantir_os_iot(self, equipamento):
-        OrdemServico.objects.get_or_create(
+        ordem, _ = OrdemServico.objects.get_or_create(
             titulo="DEMO - Anomalia IoT de temperatura",
             solicitante=None,
             status=OrdemServico.Status.ABERTA,
@@ -451,3 +530,27 @@ class Command(BaseCommand):
                 "prioridade": OrdemServico.Prioridade.ALTA,
             },
         )
+        if not DiagnosticoCausa.objects.filter(id_os=ordem).exists():
+            self._criar_diagnostico(ordem, timezone.now(), **DIAGNOSTICO_IOT_DEMO)
+
+    def _criar_diagnostico(self, ordem, gerado_em, *, hipoteses, confirmada="", causa_real="",
+                           motivo_descarte="", **campos):
+        """Pre-diagnostico de demonstracao, no formato que a IA devolveria."""
+        diagnostico = DiagnosticoCausa.objects.create(
+            id_os=ordem,
+            causa_provavel=hipoteses[0]["causa"],
+            recomendacao=campos["verificacoes"][0],
+            hipoteses=hipoteses,
+            modelo_usado="demo (seed)",
+            causa_confirmada=confirmada,
+            causa_real=causa_real,
+            confirmado_em=ordem.data_fim if confirmada else None,
+            status=(
+                DiagnosticoCausa.Status.DESCARTADO if motivo_descarte
+                else DiagnosticoCausa.Status.ATIVO
+            ),
+            motivo_descarte=motivo_descarte,
+            descartado_em=gerado_em if motivo_descarte else None,
+            **campos,
+        )
+        DiagnosticoCausa.objects.filter(pk=diagnostico.pk).update(gerado_em=gerado_em)

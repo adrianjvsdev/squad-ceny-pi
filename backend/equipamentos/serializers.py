@@ -2,6 +2,7 @@ from rest_framework import serializers
 from empresas.validators import validar_mesma_empresa
 from ordens_servico.models import OrdemServico
 from .models import Equipamento, TipoEquipamento
+from .services import criar_com_tag_automatica
 
 
 class TipoEquipamentoSerializer(serializers.ModelSerializer):
@@ -35,8 +36,15 @@ class EquipamentoSerializer(serializers.ModelSerializer):
             "tipo_nome",
             "tem_iot",
         ]
-        read_only_fields = ["id_equipamento", "ultima_manutencao", "proxima_manutencao"]
+        # A TAG e gerada a partir do nome na criacao e nunca muda depois.
+        read_only_fields = ["id_equipamento", "tag", "ultima_manutencao", "proxima_manutencao"]
         extra_kwargs = {"nome": {"max_length": 40}}
+
+    def create(self, validated_data):
+        try:
+            return criar_com_tag_automatica(**validated_data)
+        except ValueError as erro:
+            raise serializers.ValidationError({"tag": [str(erro)]})
 
     def validate_id_setor(self, value):
         user = self.context['request'].user

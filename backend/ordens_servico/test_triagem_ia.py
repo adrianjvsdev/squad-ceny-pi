@@ -23,13 +23,14 @@ from config.testutils import (
     criar_setor,
     criar_usuario,
 )
-from equipamentos.models import Equipamento
+from equipamentos.models import Equipamento, TipoEquipamento
 from notificacoes.models import Notificacao
 from ordens_servico.models import OrdemServico, TriagemIA
 from ordens_servico.tests import CAMPOS_OS
 from ordens_servico.triagem_ia import (
     EquipamentoAmbiguo,
     TriagemResultado,
+    chave_da_tag,
     interpretar_texto,
 )
 from usuarios.models import Usuario
@@ -423,6 +424,141 @@ class EquipamentoTests(TriagemBase):
             ["Não é possível abrir uma ordem de serviço para um equipamento inativo."],
         )
         self.nada_foi_criado()
+
+
+class EquipamentoEscolhidoTests(TriagemBase):
+    def setUp(self):
+        super().setUp()
+        tipo = TipoEquipamento.objects.create(nome="Separação", id_empresa=self.c.empresa)
+        self.peneira = criar_equipamento(
+            self.c.setor, tag="PM-001", nome="Peneira Molecular",
+            fabricante="Acme\x07", modelo="PSA-2", id_tipo=tipo,
+        )
+
+    def preview_com(self, id_equipamento, usuario=None, texto="Temperatura elevada desde ontem."):
+        return self.cliente(usuario or self.c.operador).post(
+            URL_PREVIEW, {"texto": texto, "id_equipamento": id_equipamento}, format="json"
+        )
+
+    def test_equipamento_escolhido_dispensa_a_resolucao_pelo_texto(self):
+        self.gerar.return_value = resposta_ia(equipamento_identificado=None)
+        resp = self.preview_com(self.peneira.pk)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["equipamento"]["id_equipamento"], self.peneira.pk)
+        self.assertEqual(resp.data["equipamento_identificado"], "PM-001")
+        self.nada_foi_criado()
+
+    def test_escolha_prevalece_sobre_o_equipamento_citado_no_texto(self):
+        # A IA cita a bomba, mas o usuario escolheu a peneira na tela.
+        resp = self.preview_com(self.peneira.pk, texto=TEXTO)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["equipamento"]["id_equipamento"], self.peneira.pk)
+
+    def test_dados_do_equipamento_vao_como_contexto_delimitado_e_saneado(self):
+        self.preview_com(self.peneira.pk)
+
+        kwargs = self.gerar.call_args.kwargs
+        conteudo = kwargs["contents"]
+        marcador = re.match(r"<equipamento-([0-9a-f]{16})>\n", conteudo).group(1)
+        self.assertEqual(
+            conteudo,
+            f"<equipamento-{marcador}>\n"
+            "TAG: PM-001\nNome: Peneira Molecular\nTipo: Separação\n"
+            f"Fabricante: Acme\nModelo: PSA-2\nSetor: {self.c.setor.nome}\nStatus: Ativo\n"
+            f"</equipamento-{marcador}>\n"
+            f"<relato-{marcador}>\nTemperatura elevada desde ontem.\n</relato-{marcador}>",
+        )
+        self.assertIn("<equipamento-", kwargs["config"].system_instruction)
+
+    def test_sem_escolha_nao_ha_bloco_de_equipamento(self):
+        self.preview()
+        self.assertNotIn("<equipamento-", self.gerar.call_args.kwargs["contents"])
+
+    def test_equipamento_fora_do_alcance_400_sem_gastar_cota(self):
+        setor_b = criar_setor(self.c.empresa, "Setor B")
+        de_outro_setor = criar_equipamento(setor_b)
+        casos = (
+            (self.c.operador, de_outro_setor.pk),
+            (self.c.admin, self.outra.equipamento.pk),
+            (self.c.admin, 999999),
+        )
+        for usuario, id_equipamento in casos:
+            with self.subTest(id_equipamento=id_equipamento):
+                resp = self.preview_com(id_equipamento, usuario)
+                self.assertEqual(resp.status_code, 400)
+                self.assertEqual(resp.data["codigo"], "equipamento_nao_identificado")
+                self.assertEqual(
+                    resp.data["detail"],
+                    "O equipamento escolhido não foi encontrado entre os que você pode acessar.",
+                )
+        self.gerar.assert_not_called()
+
+    def test_id_invalido_400_sem_chamar_a_ia(self):
+        for valor in ("abc", 0, -3):
+            resp = self.preview_com(valor)
+            self.assertEqual(resp.status_code, 400)
+            self.assertIn("id_equipamento", resp.data)
+        self.gerar.assert_not_called()
+
+    def test_id_nulo_equivale_a_nao_escolher(self):
+        resp = self.preview_com(None, texto=TEXTO)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["equipamento"]["id_equipamento"], self.bomba.pk)
+
+    def test_log_registra_se_o_equipamento_foi_escolhido(self):
+        with self.assertLogs("ordens_servico.triagem_ia", "INFO") as logs:
+            self.preview_com(self.peneira.pk)
+        self.assertIn("equipamento_escolhido=True", logs.output[0])
+
+
+class TagNormalizadaTests(TriagemBase):
+    def setUp(self):
+        super().setUp()
+        self.pm1 = criar_equipamento(self.c.setor, tag="PM-001", nome="Peneira Molecular")
+        self.pm10 = criar_equipamento(self.c.setor, tag="PM-010", nome="Peneira reserva")
+
+    def test_chave_da_tag(self):
+        for valor in ("PM-001", "pm 1", "PM1", "pm-01", " P M _ 0 0 1 "):
+            with self.subTest(valor=valor):
+                self.assertEqual(chave_da_tag(valor), "PM1")
+        self.assertEqual(chave_da_tag("PM-010"), "PM10")
+
+    def test_tag_escrita_de_outro_jeito_resolve_o_equipamento(self):
+        casos = {
+            "pm 1": self.pm1, "PM001": self.pm1, "pm-01": self.pm1,
+            "Peneira PM 001": self.pm1, "PM 10": self.pm10, "a peneira pm10": self.pm10,
+        }
+        for referencia, esperado in casos.items():
+            with self.subTest(referencia=referencia):
+                self.gerar.return_value = resposta_ia(equipamento_identificado=referencia)
+                resp = self.preview()
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(resp.data["equipamento"]["id_equipamento"], esperado.pk)
+
+    def test_tag_com_varios_blocos_no_meio_da_referencia(self):
+        esteira = criar_equipamento(self.c.setor, tag="DEMO-EQ-001", nome="Esteira Principal")
+        for referencia in ("esteira demo eq 1", "a DEMO EQ 001 parou", "demo-eq-01"):
+            with self.subTest(referencia=referencia):
+                self.gerar.return_value = resposta_ia(equipamento_identificado=referencia)
+                resp = self.preview()
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(resp.data["equipamento"]["id_equipamento"], esteira.pk)
+
+    def test_numero_solto_nao_casa_com_tag(self):
+        # "1" sozinho nao vira chave; "peneira 1" vira "PENEIRA1", que nao e "PM1".
+        criar_equipamento(self.c.setor, tag="1", nome="Equipamento legado")
+        self.gerar.return_value = resposta_ia(equipamento_identificado="peneira 1")
+        resp = self.preview()
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.data["codigo"], "equipamento_nao_identificado")
+
+    def test_tag_normalizada_respeita_a_visibilidade(self):
+        criar_equipamento(self.outra.setor, tag="CP-007", nome="Compressor")
+        self.gerar.return_value = resposta_ia(equipamento_identificado="cp 7")
+        resp = self.preview(self.c.admin)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.data["codigo"], "equipamento_nao_identificado")
 
 
 class PromptInjectionTests(TriagemBase):

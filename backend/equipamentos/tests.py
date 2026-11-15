@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from config.testutils import (
     BaseTestCase,
     Cenario,
@@ -6,6 +8,7 @@ from config.testutils import (
     vincular,
 )
 from equipamentos.models import Equipamento, TipoEquipamento
+from equipamentos.services import criar_com_tag_automatica, prefixo_da_tag, proxima_tag
 from ordens_servico.models import OrdemServico
 from usuarios.models import UsuarioSetor
 
@@ -80,7 +83,7 @@ class EquipamentoViewSetTests(BaseTestCase):
         client = self.cliente(self.c.admin)
         criar = client.post(
             "/api/equipamentos/",
-            {"tag": "T-1", "nome": "N", "id_setor": self.c.setor.pk, "id_tipo": tipo_outra.pk},
+            {"nome": "N", "id_setor": self.c.setor.pk, "id_tipo": tipo_outra.pk},
             format="json",
         )
         self.assertEqual(criar.status_code, 400)
@@ -122,7 +125,7 @@ class EquipamentoViewSetTests(BaseTestCase):
     def test_criar_em_setor_da_propria_empresa(self):
         resp = self.cliente(self.c.admin).post(
             "/api/equipamentos/",
-            {"tag": "NOVO-1", "nome": "Novo", "id_setor": self.c.setor.pk},
+            {"nome": "Novo", "id_setor": self.c.setor.pk},
             format="json",
         )
         self.assertEqual(resp.status_code, 201)
@@ -131,7 +134,7 @@ class EquipamentoViewSetTests(BaseTestCase):
     def test_criar_em_setor_de_outra_empresa_400(self):
         resp = self.cliente(self.c.admin).post(
             "/api/equipamentos/",
-            {"tag": "NOVO-2", "nome": "Novo", "id_setor": self.outra.setor.pk},
+            {"nome": "Novo", "id_setor": self.outra.setor.pk},
             format="json",
         )
         self.assertEqual(resp.status_code, 400)
@@ -140,14 +143,35 @@ class EquipamentoViewSetTests(BaseTestCase):
             ["Você não pode adicionar um equipamento a um setor fora da sua empresa."],
         )
 
-    def test_tag_duplicada_400(self):
-        resp = self.cliente(self.c.admin).post(
-            "/api/equipamentos/",
-            {"tag": self.c.equipamento.tag, "nome": "X", "id_setor": self.c.setor.pk},
+    def test_tag_gerada_pelo_nome_ignora_a_enviada(self):
+        client = self.cliente(self.c.admin)
+        dados = {"nome": "Peneira Molecular", "id_setor": self.c.setor.pk}
+        primeira = client.post(
+            "/api/equipamentos/", {**dados, "tag": self.c.equipamento.tag}, format="json"
+        )
+        segunda = client.post("/api/equipamentos/", dados, format="json")
+        self.assertEqual(primeira.status_code, 201)
+        self.assertEqual(primeira.data["tag"], "PM-001")
+        self.assertEqual(segunda.data["tag"], "PM-002")
+
+    def test_tag_nao_muda_na_edicao(self):
+        resp = self.cliente(self.c.admin).patch(
+            f"/api/equipamentos/{self.c.equipamento.pk}/",
+            {"tag": "OUTRA-1", "nome": "Bomba de Vácuo"},
             format="json",
         )
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn("tag", resp.data)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["tag"], self.c.equipamento.tag)
+        self.assertEqual(resp.data["nome"], "Bomba de Vácuo")
+
+    def test_sequencia_da_tag_vale_para_todas_as_empresas(self):
+        criar_equipamento(self.outra.setor, tag="PM-007")
+        resp = self.cliente(self.c.admin).post(
+            "/api/equipamentos/",
+            {"nome": "Peneira Molecular", "id_setor": self.c.setor.pk},
+            format="json",
+        )
+        self.assertEqual(resp.data["tag"], "PM-008")
 
     def test_campos_de_manutencao_sao_somente_leitura(self):
         resp = self.cliente(self.c.admin).patch(
@@ -162,7 +186,7 @@ class EquipamentoViewSetTests(BaseTestCase):
 
     def test_nao_admin_le_mas_nao_escreve(self):
         url = f"/api/equipamentos/{self.c.equipamento.pk}/"
-        novo = {"tag": "NAO-ADMIN", "nome": "X", "id_setor": self.c.setor.pk}
+        novo = {"nome": "X", "id_setor": self.c.setor.pk}
         for usuario in (self.c.operador, self.c.tecnico):
             client = self.cliente(usuario)
             self.assertEqual(client.get(url).status_code, 200)
@@ -176,7 +200,7 @@ class EquipamentoViewSetTests(BaseTestCase):
             self.assertEqual(client.delete(url).status_code, 403)
         self.c.equipamento.refresh_from_db()
         self.assertEqual(self.c.equipamento.status, "ativo")
-        self.assertFalse(Equipamento.objects.filter(tag="NAO-ADMIN").exists())
+        self.assertFalse(Equipamento.objects.filter(nome="X").exists())
 
     def test_admin_desativa_e_reativa(self):
         url = f"/api/equipamentos/{self.c.equipamento.pk}/"
@@ -229,7 +253,7 @@ class EquipamentoViewSetTests(BaseTestCase):
         client = self.cliente(self.c.admin)
         criar = client.post(
             "/api/equipamentos/",
-            {"tag": "LONGO-1", "nome": "E" * 41, "id_setor": self.c.setor.pk},
+            {"nome": "E" * 41, "id_setor": self.c.setor.pk},
             format="json",
         )
         self.assertEqual(criar.status_code, 400)
@@ -240,7 +264,7 @@ class EquipamentoViewSetTests(BaseTestCase):
         self.assertEqual(editar.status_code, 400)
         no_limite = client.post(
             "/api/equipamentos/",
-            {"tag": "LONGO-2", "nome": "E" * 40, "id_setor": self.c.setor.pk},
+            {"nome": "E" * 40, "id_setor": self.c.setor.pk},
             format="json",
         )
         self.assertEqual(no_limite.status_code, 201)
@@ -255,7 +279,7 @@ class EquipamentoViewSetTests(BaseTestCase):
 
         criar = client.post(
             "/api/equipamentos/",
-            {"tag": "NOVO-3", "nome": "Novo", "id_setor": self.setor_b.pk},
+            {"nome": "Novo", "id_setor": self.setor_b.pk},
             format="json",
         )
         self.assertEqual(criar.status_code, 400)
@@ -285,6 +309,57 @@ class EquipamentoViewSetTests(BaseTestCase):
         self.assertEqual(
             self.cliente().post("/api/equipamentos/", {}, format="json").status_code, 401
         )
+
+
+class TagAutomaticaTests(BaseTestCase):
+    def setUp(self):
+        self.c = Cenario()
+
+    def test_prefixo_da_tag(self):
+        casos = {
+            "Peneira Molecular": "PM",
+            "Bomba de Vácuo": "BV",
+            "Bomba centrífuga 2": "BC",
+            "Compressor": "CO",
+            "Água": "AG",
+            "  esteira  ": "ES",
+            "Z": "ZX",
+            "Bomba-01": "BO",
+            "De": "DE",
+            "123": "EQ",
+            "": "EQ",
+        }
+        for nome, esperado in casos.items():
+            with self.subTest(nome=nome):
+                self.assertEqual(prefixo_da_tag(nome), esperado)
+
+    def test_proxima_tag_usa_o_maior_numero_do_prefixo(self):
+        self.assertEqual(proxima_tag("PM"), "PM-001")
+        for tag in ("PM-002", "PM-010", "PM-ANTIGA", "PMX-050", "XPM-099"):
+            criar_equipamento(self.c.setor, tag=tag)
+        self.assertEqual(proxima_tag("PM"), "PM-011")
+
+    def test_numero_passa_de_tres_digitos(self):
+        criar_equipamento(self.c.setor, tag="PM-999")
+        self.assertEqual(proxima_tag("PM"), "PM-1000")
+        criar_equipamento(self.c.setor, tag="PM-1000")
+        self.assertEqual(proxima_tag("PM"), "PM-1001")
+
+    def test_tag_ocupada_entre_o_calculo_e_a_gravacao_tenta_a_seguinte(self):
+        criar_equipamento(self.c.setor, tag="PM-001")
+        with patch(
+            "equipamentos.services.proxima_tag", side_effect=["PM-001", "PM-002"]
+        ):
+            equipamento = criar_com_tag_automatica(
+                nome="Peneira Molecular", id_setor=self.c.setor
+            )
+        self.assertEqual(equipamento.tag, "PM-002")
+
+    def test_desiste_depois_de_varias_colisoes(self):
+        criar_equipamento(self.c.setor, tag="PM-001")
+        with patch("equipamentos.services.proxima_tag", return_value="PM-001"):
+            with self.assertRaises(ValueError):
+                criar_com_tag_automatica(nome="Peneira Molecular", id_setor=self.c.setor)
 
 
 class TipoEquipamentoViewSetTests(BaseTestCase):

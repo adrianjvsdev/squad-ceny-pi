@@ -314,6 +314,25 @@ npm run dev
 | PATCH | `/api/usuarios/{id}/` | Atualiza um usuário |
 | DELETE | `/api/usuarios/{id}/` | Deleta um usuário |
 
+### Equipamentos
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| GET | `/api/equipamentos/` | Lista os equipamentos visíveis ao usuário |
+| POST | `/api/equipamentos/` | Cadastra (admin). A TAG é gerada pelo nome: iniciais das duas primeiras palavras, ou as duas primeiras letras, + número sequencial (`Peneira Molecular` → `PM-001`) |
+| PATCH / DELETE | `/api/equipamentos/{id}/` | Edita / exclui (admin). A TAG não muda depois do cadastro |
+
+### Ordens de serviço: triagem e pré-diagnóstico por IA
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| POST | `/api/ordens-servico/triagem-ia/` | Triagem de um relato livre para revisão (não grava). `id_equipamento` opcional |
+| POST | `/api/ordens-servico/{id}/diagnostico/` | Gera o pré-diagnóstico de causa (admin ou técnico atribuído) |
+| PATCH | `/api/ordens-servico/{id}/diagnostico/descartar/` | Descarta o pré-diagnóstico, com `motivo` (admin) |
+| GET | `/api/ordens-servico/diagnostico/indicadores/?dias=` | Acerto da IA nos pré-diagnósticos |
+
+Detalhes: [docs/triagem_ia.md](docs/triagem_ia.md) e [docs/diagnostico_ia.md](docs/diagnostico_ia.md).
+
 ### Planos de manutenção (aba Preventivas)
 
 | Método | Endpoint | Descrição |
@@ -334,7 +353,7 @@ Regras, cálculos e configuração: [docs/manutencao_preventiva.md](docs/manuten
 
 | Comando | O que faz |
 |---|---|
-| `python manage.py seed_mock_data --with-os --with-planos` | Dados de demonstração: empresa, usuários, equipamentos, OS e 7 planos preventivos com 3 meses de histórico (recria os planos dos equipamentos `DEMO-EQ-*`) |
+| `python manage.py seed_mock_data --with-os --with-planos` | Dados de demonstração: empresa, usuários, equipamentos, OS, 7 planos preventivos com 3 meses de histórico e pré-diagnósticos com causa confirmada (recria os planos dos equipamentos `DEMO-EQ-*`) |
 | `python manage.py gerar_preventivas` | Gera as OS preventivas vencidas e os avisos de vencimento, como a task do Celery faria (útil sem worker/beat) |
 | `python manage.py verificar_dados_cruzados` | Auditoria somente leitura de dados inconsistentes entre empresas |
 

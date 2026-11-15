@@ -199,7 +199,6 @@ export function InventoryPage({ userType }) {
   const [agendar, setAgendar] = useState({ open: false, idEquipamento: null, plano: null });
   // Muda a cada agendamento salvo, para recarregar os planos do detalhe.
   const [versaoPlanos, setVersaoPlanos] = useState(0);
-  const [avisoAgendamento, setAvisoAgendamento] = useState(null);
   const [loadingEquipamentos, setLoadingEquipamentos] = useState(true);
   const [erroEquipamentos, setErroEquipamentos] = useState(null);
 
@@ -231,6 +230,8 @@ export function InventoryPage({ userType }) {
   // id do equipamento em edição; null = modal em modo de cadastro
   const [editandoEquipId, setEditandoEquipId] = useState(null);
   const [alterandoStatusId, setAlterandoStatusId] = useState(null);
+  // Mensagem de sucesso no topo da página (TAG gerada, agendamento salvo).
+  const [aviso, setAviso] = useState(null);
 
   // Form tipo de equipamento
   const [formTipo, setFormTipo] = useState({
@@ -318,7 +319,7 @@ export function InventoryPage({ userType }) {
   async function aoSalvarAgendamento(plano) {
     const editando = Boolean(agendar.plano);
     setAgendar({ open: false, idEquipamento: null, plano: null });
-    setAvisoAgendamento(
+    setAviso(
       editando
         ? `Agendamento de ${plano.equipamento_tag} atualizado.`
         : `Manutenção agendada para ${plano.equipamento_tag}. Primeira execução em ${formatarData(plano.proxima_execucao)}. Acompanhe na aba Preventivas.`,
@@ -417,9 +418,6 @@ export function InventoryPage({ userType }) {
     if (!formEquip.nome.trim()) {
       return setErroEquip("Nome do equipamento é obrigatório.");
     }
-    if (!formEquip.tag.trim()) {
-      return setErroEquip("Código / TAG é obrigatório.");
-    }
     if (!formEquip.id_tipo) {
       return setErroEquip("Tipo é obrigatório.");
     }
@@ -431,7 +429,6 @@ export function InventoryPage({ userType }) {
     try {
       const payload = {
         nome: formEquip.nome.trim(),
-        tag: formEquip.tag.trim(),
         id_tipo: formEquip.id_tipo,
         id_setor: formEquip.id_setor,
         tem_iot: formEquip.tem_iot,
@@ -450,8 +447,9 @@ export function InventoryPage({ userType }) {
         );
         fecharModalEquip();
       } else {
-        await equipamentosAPI.criarEquipamento({ ...payload, status: "ativo" });
+        const criado = await equipamentosAPI.criarEquipamento({ ...payload, status: "ativo" });
         fecharModalEquip();
+        setAviso(`${criado.nome} cadastrado com a TAG ${criado.tag}.`);
         await carregarEquipamentos();
       }
     } catch (e) {
@@ -637,7 +635,7 @@ export function InventoryPage({ userType }) {
         )}
       </div>
 
-      {avisoAgendamento && (
+      {aviso && (
         <div
           role="status"
           style={{
@@ -653,10 +651,10 @@ export function InventoryPage({ userType }) {
             fontSize: "0.82rem",
           }}
         >
-          <span>{avisoAgendamento}</span>
+          <span>{aviso}</span>
           <button
             type="button"
-            onClick={() => setAvisoAgendamento(null)}
+            onClick={() => setAviso(null)}
             aria-label="Fechar aviso"
             style={{ border: "none", background: "none", cursor: "pointer", color: "inherit", fontSize: "1rem" }}
           >
@@ -1217,14 +1215,21 @@ export function InventoryPage({ userType }) {
                 setFormEquip({ ...formEquip, nome: e.target.value })
               }
             />
-            <Input
-              label="Código / TAG"
-              placeholder="Ex: EQ-007"
-              value={formEquip.tag}
-              onChange={(e) =>
-                setFormEquip({ ...formEquip, tag: e.target.value })
-              }
-            />
+            {/* A TAG é gerada pelo backend a partir do nome e não muda depois. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <Input
+                label="Código / TAG"
+                value={editandoEquipId ? formEquip.tag : "Gerada ao salvar"}
+                readOnly
+                disabled
+                style={{ background: C.gray50, color: C.gray500, cursor: "not-allowed" }}
+              />
+              <span style={{ fontSize: "0.72rem", color: C.gray500 }}>
+                {editandoEquipId
+                  ? "A TAG não muda depois do cadastro."
+                  : "Iniciais do nome + número sequencial (ex.: Peneira Molecular → PM-001)."}
+              </span>
+            </div>
           </div>
           <div
             style={{
