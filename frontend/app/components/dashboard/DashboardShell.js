@@ -10,6 +10,7 @@ import { PreventivasPage } from "./pages/PreventivasPage";
 import { TicketsPage } from "./pages/TicketsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RiskMapPage, SettingsPage } from "./pages/OtherPages";
+import { C, font } from "@/lib/constants";
 import {
   getNotifications,
   markAsRead,
@@ -187,8 +188,9 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
       style={{
         display: "flex",
         minHeight: "100vh",
-        background: "#f5f6f8",
-        fontFamily: "system-ui, sans-serif",
+        background: C.appBg,
+        fontFamily: font,
+        color: C.gray900,
       }}
     >
       <Sidebar
@@ -215,14 +217,26 @@ export function DashboardShell({ perfil = "operador", profile, onLogout }) {
       >
         <Topbar
           pageLabel={PAGE_LABELS[safePage]}
+          sidebarOpen={sidebarOpen}
           onMenuToggle={() => setSidebarOpen((v) => !v)}
           onNotifToggle={handleNotifToggle}
           notifOpen={notifOpen}
           notifications={notifications}
+          profile={localProfile}
           onLogout={onLogout}
         />
-        <main style={{ flex: 1, padding: "1.5rem", overflowY: "auto" }}>
-          <PageContent page={safePage} perfil={perfil} profile={localProfile} onProfileUpdate={handleProfileUpdate} />
+        <main style={{ flex: 1, padding: "1.75rem 2rem 2.5rem", overflowY: "auto" }}>
+          <div
+            key={safePage}
+            style={{
+              maxWidth: 1440,
+              margin: "0 auto",
+              // Só opacidade: transform aqui viraria referência dos modais fixed.
+              animation: "fadeIn 0.25s ease",
+            }}
+          >
+            <PageContent page={safePage} perfil={perfil} profile={localProfile} onProfileUpdate={handleProfileUpdate} />
+          </div>
         </main>
       </div>
 

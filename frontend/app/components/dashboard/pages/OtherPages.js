@@ -392,7 +392,7 @@ export function RiskMapPage({ userType }) {
           <h2
             style={{
               margin: 0,
-              fontSize: "1rem",
+              fontSize: "1.4rem", letterSpacing: "-0.02em",
               fontWeight: 700,
               color: C.gray900,
             }}
@@ -400,7 +400,7 @@ export function RiskMapPage({ userType }) {
             Mapa de Risco
           </h2>
           <p
-            style={{ margin: "2px 0 0", fontSize: "0.78rem", color: C.gray400 }}
+            style={{ margin: "4px 0 0", fontSize: "0.85rem", color: C.gray500 }}
           >
             Visualizacao interativa dos setores cadastrados
           </p>
@@ -435,7 +435,8 @@ export function RiskMapPage({ userType }) {
             flex: 1,
             background: C.white,
             border: `1px solid ${C.gray200}`,
-            borderRadius: 8,
+            borderRadius: 12,
+            boxShadow: C.shadowCard,
             padding: "1rem",
             minWidth: 400,
           }}
@@ -457,7 +458,8 @@ export function RiskMapPage({ userType }) {
               style={{
                 background: C.white,
                 border: `1px solid ${C.gray200}`,
-                borderRadius: 8,
+                borderRadius: 12,
+                boxShadow: C.shadowCard,
                 padding: "1rem",
                 boxSizing: "border-box",
               }}
@@ -534,7 +536,7 @@ export function RiskMapPage({ userType }) {
                     padding: "0.5rem 0.75rem",
                     background: C.redLight,
                     border: `1px solid #fca5a5`,
-                    borderRadius: 6,
+                    borderRadius: 8,
                     marginBottom: 8,
                     fontSize: "0.75rem",
                     color: C.redDark,
@@ -555,7 +557,7 @@ export function RiskMapPage({ userType }) {
                   style={{
                     background: C.gray50,
                     border: `1px solid ${C.gray100}`,
-                    borderRadius: 6,
+                    borderRadius: 8,
                     padding: "0.45rem",
                   }}
                 >
@@ -582,7 +584,7 @@ export function RiskMapPage({ userType }) {
                   style={{
                     background: C.gray50,
                     border: `1px solid ${C.gray100}`,
-                    borderRadius: 6,
+                    borderRadius: 8,
                     padding: "0.45rem",
                   }}
                 >
@@ -729,7 +731,8 @@ export function RiskMapPage({ userType }) {
             style={{
               background: C.white,
               border: `1px solid ${C.gray200}`,
-              borderRadius: 8,
+              borderRadius: 12,
+              boxShadow: C.shadowCard,
               padding: "0.85rem",
             }}
           >
@@ -817,7 +820,7 @@ export function ReportsPage() {
       <h2
         style={{
           margin: 0,
-          fontSize: "1rem",
+          fontSize: "1.4rem", letterSpacing: "-0.02em",
           fontWeight: 700,
           color: C.gray900,
         }}
@@ -863,7 +866,8 @@ export function ReportsPage() {
             style={{
               background: C.white,
               border: `1px solid ${C.gray200}`,
-              borderRadius: 8,
+              borderRadius: 12,
+              boxShadow: C.shadowCard,
               padding: "1rem",
             }}
           >
@@ -971,7 +975,7 @@ export function SettingsPage({ onProfileUpdate }) {
         <h2
           style={{
             margin: 0,
-            fontSize: "1rem",
+            fontSize: "1.4rem", letterSpacing: "-0.02em",
             fontWeight: 700,
             color: C.gray900,
           }}
@@ -997,7 +1001,7 @@ export function SettingsPage({ onProfileUpdate }) {
       <h2
         style={{
           margin: 0,
-          fontSize: "1rem",
+          fontSize: "1.4rem", letterSpacing: "-0.02em",
           fontWeight: 700,
           color: C.gray900,
         }}
@@ -1010,7 +1014,8 @@ export function SettingsPage({ onProfileUpdate }) {
         style={{
           background: C.white,
           border: `1px solid ${C.gray200}`,
-          borderRadius: 8,
+          borderRadius: 12,
+          boxShadow: C.shadowCard,
           padding: "1.25rem",
         }}
       >
@@ -1049,7 +1054,8 @@ export function SettingsPage({ onProfileUpdate }) {
         style={{
           background: C.white,
           border: `1px solid ${C.gray200}`,
-          borderRadius: 8,
+          borderRadius: 12,
+          boxShadow: C.shadowCard,
           padding: "1.25rem",
         }}
       >
@@ -1102,7 +1108,7 @@ export function SettingsPage({ onProfileUpdate }) {
               padding: "0.75rem",
               background: C.redLight,
               border: `1px solid #fca5a5`,
-              borderRadius: 6,
+              borderRadius: 8,
               marginBottom: "1rem",
               fontSize: "0.78rem",
               color: C.redDark,
@@ -1118,7 +1124,7 @@ export function SettingsPage({ onProfileUpdate }) {
               padding: "0.75rem",
               background: "#dcfce7",
               border: `1px solid #86efac`,
-              borderRadius: 6,
+              borderRadius: 8,
               marginBottom: "1rem",
               fontSize: "0.78rem",
               color: "#15803d",

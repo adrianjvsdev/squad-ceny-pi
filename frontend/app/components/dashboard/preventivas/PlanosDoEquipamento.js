@@ -66,7 +66,7 @@ export function PlanosDoEquipamento({ idEquipamento, podeAgendar, onAgendar, onE
                 gap: 10,
                 padding: "0.6rem 0.8rem",
                 background: C.gray50,
-                borderRadius: 6,
+                borderRadius: 8,
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>

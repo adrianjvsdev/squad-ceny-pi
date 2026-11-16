@@ -112,6 +112,7 @@ export function OverviewPage() {
         value: String(ordens.length),
         change: "Ordens no sistema",
         color: C.blue,
+        tint: C.blueLight,
         icon: "ticket",
       },
       {
@@ -121,20 +122,23 @@ export function OverviewPage() {
           ? `${aguardandoInicio} aguardando início`
           : "Atendimentos iniciados",
         color: C.green,
-        icon: "monitor",
+        tint: "#f0fdf4",
+        icon: "activity",
       },
       {
         label: "Equipamentos Ativos",
         value: String(equipamentosAtivos),
         change: `${equipamentos.length} cadastrados`,
         color: C.purple,
-        icon: "db",
+        tint: C.purpleLight,
+        icon: "cpu",
       },
       {
         label: "Alertas Ativos",
         value: String(alertasAtivos),
         change: `${criticos} críticos`,
         color: C.red,
+        tint: C.redLight,
         icon: "alert",
       },
     ];
@@ -171,37 +175,80 @@ export function OverviewPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* Cabeçalho */}
+      <div>
+        <h2
+          style={{
+            margin: 0,
+            fontSize: "1.4rem",
+            letterSpacing: "-0.02em",
+            fontWeight: 700,
+            color: C.gray900,
+          }}
+        >
+          Visão Geral
+        </h2>
+        <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: C.gray500 }}>
+          Acompanhe ordens de serviço, equipamentos e alertas da operação.
+        </p>
+      </div>
+
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
-        {stats.map(({ label, value, change, color, icon }) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+        {stats.map(({ label, value, change, color, tint, icon }) => (
           <div
             key={label}
             style={{
               background: C.white,
               border: `1px solid ${C.gray200}`,
-              borderRadius: 8,
+              borderRadius: 12,
+              boxShadow: C.shadowCard,
               padding: "1.25rem",
               display: "flex",
               flexDirection: "column",
-              gap: 8,
+              gap: 12,
+              position: "relative",
+              overflow: "hidden",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.75rem", fontWeight: 600, color: C.gray500 }}>
-                {label.toUpperCase()}
+              <span style={{ fontSize: "0.82rem", fontWeight: 500, color: C.gray500 }}>
+                {label}
               </span>
-              <span style={{ color, display: "flex" }}>
-                <Ico name={icon} size={16} color={color} />
+              <span
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: tint,
+                  color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ico name={icon} size={17} color={color} />
               </span>
             </div>
-            <div style={{ fontSize: "2rem", fontWeight: 700, color: C.gray900, lineHeight: 1 }}>{value}</div>
-            <div style={{ fontSize: "0.72rem", color: C.gray400 }}>{change}</div>
+            <div
+              style={{
+                fontSize: "2rem",
+                fontWeight: 700,
+                color: C.gray900,
+                lineHeight: 1,
+                letterSpacing: "-0.03em",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {loading ? "—" : value}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: C.gray500 }}>{change}</div>
           </div>
         ))}
       </div>
 
       {/* Recent Orders Table */}
-      <div style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 8 }}>
+      <div style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 12, boxShadow: C.shadowCard }}>
         <div
           style={{
             padding: "1rem 1.25rem",
@@ -211,7 +258,7 @@ export function OverviewPage() {
             alignItems: "center",
           }}
         >
-          <h3 style={{ margin: 0, fontSize: "0.88rem", fontWeight: 600, color: C.gray900 }}>
+          <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 650, color: C.gray900 }}>
             Ordens Recentes
           </h3>
           <Badge color={erro ? "red" : "blue"}>

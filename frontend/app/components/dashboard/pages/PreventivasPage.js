@@ -60,7 +60,7 @@ function Alerta({ tipo, children, onFechar }) {
         padding: "0.7rem 1rem",
         background: erro ? C.redLight : C.greenLight,
         border: `1px solid ${erro ? C.red : C.green}`,
-        borderRadius: 6,
+        borderRadius: 8,
         color: erro ? C.redDark : C.greenDark,
         fontSize: "0.8rem",
       }}
@@ -85,7 +85,7 @@ function Alternador({ opcoes, valor, onChange, rotulo }) {
     <div
       role="group"
       aria-label={rotulo}
-      style={{ display: "inline-flex", border: `1px solid ${C.gray300}`, borderRadius: 6, overflow: "hidden" }}
+      style={{ display: "inline-flex", border: `1px solid ${C.gray300}`, borderRadius: 8, overflow: "hidden" }}
     >
       {opcoes.map(([chave, label]) => {
         const ativo = valor === chave;
@@ -338,10 +338,10 @@ export function PreventivasPage({ userType }) {
       {/* Cabeçalho */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: C.gray900 }}>
+          <h2 style={{ margin: 0, fontSize: "1.4rem", letterSpacing: "-0.02em", fontWeight: 700, color: C.gray900 }}>
             Manutenções Preventivas
           </h2>
-          <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: C.gray400 }}>
+          <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: C.gray500 }}>
             {isAdmin
               ? "Planeje as preventivas, acompanhe o que vence e meça se o plano está sendo cumprido."
               : "Acompanhe as preventivas dos seus setores. Só administradores agendam e alteram planos."}

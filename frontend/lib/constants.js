@@ -2,35 +2,45 @@
 // DESIGN TOKENS
 // ============================================================
 export const C = {
+  // Azul Ceny
   blue: "#2b5ce6",
-  blueLight: "#EFF4FF",
-  blueLight2: "#DBEAFE",
-  gray50: "#f9fafb",
-  gray100: "#f3f4f6",
-  gray200: "#e5e7eb",
-  gray300: "#d1d5db",
-  gray400: "#9ca3af",
-  gray500: "#6b7280",
-  gray600: "#4b5563",
-  gray700: "#374151",
-  gray800: "#1f2937",
-  gray900: "#111827",
-  green: "#22c55e",
+  blueHover: "#2049c7",
+  blueDark: "#1a3a9c",
+  blueLight: "#eff4ff",
+  blueLight2: "#dbe6fe",
+  // Neutros (slate: cinza frio, harmoniza com o azul)
+  gray50: "#f8fafc",
+  gray100: "#f1f5f9",
+  gray200: "#e2e8f0",
+  gray300: "#cbd5e1",
+  gray400: "#8593a8",
+  gray500: "#64748b",
+  gray600: "#475569",
+  gray700: "#334155",
+  gray800: "#1e293b",
+  gray900: "#0f172a",
+  green: "#16a34a",
   greenLight: "#dcfce7",
   greenDark: "#15803d",
-  red: "#ef4444",
-  redLight: "#fee2e2",
+  red: "#dc2626",
+  redLight: "#fef2f2",
   redDark: "#b91c1c",
   amber: "#f59e0b",
-  amberLight: "#fef3c7",
+  amberLight: "#fffbeb",
   amberDark: "#92400e",
   purple: "#7c3aed",
-  purpleLight: "#ede9fe",
+  purpleLight: "#f5f3ff",
   purpleDark: "#5b21b6",
   white: "#ffffff",
+  // Superfícies e elevação
+  appBg: "#f5f7fb",
+  shadowCard: "0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.04)",
+  shadowMd: "0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04)",
+  shadowLg: "0 24px 48px -12px rgba(15, 23, 42, 0.25)",
 };
 
-export const font = "'Segoe UI', 'Helvetica Neue', sans-serif";
+export const font =
+  "var(--font-inter), -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif";
 
 // ============================================================
 // ICON PATHS
@@ -231,6 +241,54 @@ export const Icons = {
   ),
   sparkle: (
     <path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z" />
+  ),
+  menu: (
+    <>
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+    </>
+  ),
+  panelLeft: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+    </>
+  ),
+  chevLeft: <polyline points="15 18 9 12 15 6" />,
+  arrowRight: (
+    <>
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </>
+  ),
+  shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+  activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
+  cpu: (
+    <>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <rect x="9" y="9" width="6" height="6" />
+      <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+    </>
+  ),
+  layers: (
+    <>
+      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+      <polyline points="2 17 12 22 22 17" />
+      <polyline points="2 12 12 17 22 12" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <polyline points="22 6 12 13 2 6" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </>
   ),
 };
 

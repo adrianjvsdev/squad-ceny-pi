@@ -56,8 +56,8 @@ export function ConfirmarAcaoModal({
             style={{
               padding: "0.6rem 0.8rem",
               background: C.redLight,
-              border: `1px solid ${C.red}`,
-              borderRadius: 6,
+              border: "1px solid #fecaca",
+              borderRadius: 8,
               color: C.redDark,
               fontSize: "0.8rem",
             }}

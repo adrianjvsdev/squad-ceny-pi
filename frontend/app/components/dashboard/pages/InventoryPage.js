@@ -77,7 +77,8 @@ function EquipmentTooltip({ equip }) {
             zIndex: 100,
             background: C.white,
             border: `1px solid ${C.gray200}`,
-            borderRadius: 8,
+            borderRadius: 12,
+            boxShadow: C.shadowCard,
             padding: "0.85rem",
             width: 260,
             boxSizing: "border-box",
@@ -123,8 +124,9 @@ function EquipmentTooltip({ equip }) {
           {equip.iot && (
             <div
               style={{
-                background: "#0f172a",
-                borderRadius: 6,
+                background: "linear-gradient(135deg, #f5f9ff 0%, #ecf3ff 100%)",
+                border: "1px solid #d6e3fd",
+                borderRadius: 8,
                 padding: "0.6rem",
                 marginBottom: 8,
               }}
@@ -138,7 +140,7 @@ function EquipmentTooltip({ equip }) {
                 }}
               >
                 <IoTBadge />
-                <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                <span style={{ fontSize: "0.7rem", color: C.gray500 }}>
                   Dados em tempo real
                 </span>
               </div>
@@ -161,7 +163,7 @@ function EquipmentTooltip({ equip }) {
                     <div
                       style={{
                         fontWeight: 700,
-                        color: "#e2e8f0",
+                        color: C.gray900,
                         fontSize: "0.78rem",
                       }}
                     >
@@ -605,7 +607,7 @@ export function InventoryPage({ userType }) {
           <h2
             style={{
               margin: 0,
-              fontSize: "1rem",
+              fontSize: "1.4rem", letterSpacing: "-0.02em",
               fontWeight: 700,
               color: C.gray900,
             }}
@@ -613,7 +615,7 @@ export function InventoryPage({ userType }) {
             Inventário
           </h2>
           <p
-            style={{ margin: "2px 0 0", fontSize: "0.78rem", color: C.gray400 }}
+            style={{ margin: "4px 0 0", fontSize: "0.85rem", color: C.gray500 }}
           >
             {loadingEquipamentos
               ? "Carregando..."
@@ -645,8 +647,8 @@ export function InventoryPage({ userType }) {
             gap: 12,
             padding: "0.7rem 1rem",
             background: C.greenLight,
-            border: `1px solid ${C.green}`,
-            borderRadius: 6,
+            border: "1px solid #bbf7d0",
+            borderRadius: 8,
             color: C.greenDark,
             fontSize: "0.82rem",
           }}
@@ -668,8 +670,8 @@ export function InventoryPage({ userType }) {
           style={{
             padding: "0.75rem 1rem",
             background: C.redLight,
-            border: `1px solid ${C.red}`,
-            borderRadius: 6,
+            border: "1px solid #fecaca",
+            borderRadius: 8,
             color: C.red,
             fontSize: "0.85rem",
           }}
@@ -700,7 +702,7 @@ export function InventoryPage({ userType }) {
               width: "100%",
               padding: "0.55rem 0.85rem 0.55rem 32px",
               border: `1px solid ${C.gray200}`,
-              borderRadius: 6,
+              borderRadius: 8,
               fontSize: "0.82rem",
               outline: "none",
             }}
@@ -717,7 +719,7 @@ export function InventoryPage({ userType }) {
               border: `1px solid ${filterStatus === s ? C.blue : C.gray200}`,
               background: filterStatus === s ? C.blueLight : C.white,
               color: filterStatus === s ? C.blue : C.gray500,
-              borderRadius: 6,
+              borderRadius: 8,
               cursor: "pointer",
             }}
           >
@@ -734,13 +736,14 @@ export function InventoryPage({ userType }) {
             alignItems: "center",
             gap: 8,
             padding: "0.6rem 0.85rem",
-            background: "#0f172a",
-            borderRadius: 6,
+            background: "linear-gradient(135deg, #f5f9ff 0%, #ecf3ff 100%)",
+                border: "1px solid #d6e3fd",
+            borderRadius: 8,
             width: "fit-content",
           }}
         >
           <IoTBadge />
-          <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+          <span style={{ fontSize: "0.75rem", color: C.gray500 }}>
             Equipamentos com esta flag possuem monitoramento IoT — passe o mouse
             para ver os dados ao vivo
           </span>
@@ -767,7 +770,8 @@ export function InventoryPage({ userType }) {
           style={{
             background: C.white,
             border: `1px solid ${C.gray200}`,
-            borderRadius: 8,
+            borderRadius: 12,
+            boxShadow: C.shadowCard,
           }}
         >
           <table
@@ -963,7 +967,7 @@ export function InventoryPage({ userType }) {
                   style={{
                     padding: "0.65rem 0.85rem",
                     background: C.gray50,
-                    borderRadius: 6,
+                    borderRadius: 8,
                   }}
                 >
                   <div
@@ -1012,7 +1016,8 @@ export function InventoryPage({ userType }) {
             {selectedEquip.iot && (
               <div
                 style={{
-                  background: "#0f172a",
+                  background: "linear-gradient(135deg, #f5f9ff 0%, #ecf3ff 100%)",
+                border: "1px solid #d6e3fd",
                   borderRadius: 8,
                   padding: "1rem",
                 }}
@@ -1026,7 +1031,7 @@ export function InventoryPage({ userType }) {
                   }}
                 >
                   <IoTBadge />
-                  <span style={{ fontSize: "0.78rem", color: "#94a3b8" }}>
+                  <span style={{ fontSize: "0.78rem", color: C.gray500 }}>
                     Monitoramento em tempo real
                   </span>
                 </div>
@@ -1051,8 +1056,9 @@ export function InventoryPage({ userType }) {
                       style={{
                         textAlign: "center",
                         padding: "0.75rem",
-                        background: "rgba(255,255,255,0.05)",
-                        borderRadius: 6,
+                        background: C.white,
+                        border: "1px solid #dfe8fb",
+                        borderRadius: 8,
                       }}
                     >
                       <div
@@ -1068,12 +1074,12 @@ export function InventoryPage({ userType }) {
                         style={{
                           fontSize: "1.25rem",
                           fontWeight: 700,
-                          color: "#e2e8f0",
+                          color: C.gray900,
                         }}
                       >
                         {val}
                       </div>
-                      <div style={{ fontSize: "0.65rem", color: "#475569" }}>
+                      <div style={{ fontSize: "0.65rem", color: C.gray400 }}>
                         {sub}
                       </div>
                     </div>
@@ -1161,7 +1167,7 @@ export function InventoryPage({ userType }) {
               style={{
                 padding: "0.75rem",
                 border: `1px solid #e5e7eb`,
-                borderRadius: 6,
+                borderRadius: 8,
                 fontSize: "0.85rem",
                 fontFamily: "inherit",
                 resize: "vertical",
@@ -1282,7 +1288,7 @@ export function InventoryPage({ userType }) {
               gap: 10,
               padding: "0.75rem",
               background: C.gray50,
-              borderRadius: 6,
+              borderRadius: 8,
               border: `1px solid ${C.gray200}`,
             }}
           >

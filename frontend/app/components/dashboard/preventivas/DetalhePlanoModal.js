@@ -94,7 +94,7 @@ function Conteudo({ plano, onClose, onEditar }) {
         ) : !execucoes.length ? (
           <div style={{ fontSize: "0.8rem", color: C.gray500 }}>Nenhuma execução registrada ainda.</div>
         ) : (
-          <div style={{ border: `1px solid ${C.gray200}`, borderRadius: 6, maxHeight: 240, overflowY: "auto" }}>
+          <div style={{ border: `1px solid ${C.gray200}`, borderRadius: 8, maxHeight: 240, overflowY: "auto" }}>
             {execucoes.map((ex) => (
               <LinhaExecucao key={ex.id_execucao} execucao={ex} />
             ))}

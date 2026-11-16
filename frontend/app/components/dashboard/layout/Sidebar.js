@@ -2,11 +2,27 @@
 
 import { C } from "@/lib/constants";
 import { Ico } from "../../ui";
-import { PERFIL_LABELS } from "@/lib/auth";
 import { useState } from "react";
+import { CenyLogo } from "../../brand/CenyLogo";
+
+const PERFIL_NOMES = {
+  admin: "Administrador",
+  tecnico: "Técnico",
+  operador: "Operador",
+};
+
+export function iniciais(nome) {
+  return (nome || "U")
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
 export function Sidebar({
-  isOpen, // 👈 prop nova
+  isOpen,
   menu,
   page,
   perfil,
@@ -15,10 +31,9 @@ export function Sidebar({
   onLogout,
   onToggle,
 }) {
-  const [isClosing, setIsClosing] = useState(false); // 👈 estado novo
+  const [isClosing, setIsClosing] = useState(false);
 
   const handleToggle = () => {
-    // 👈 função nova
     setIsClosing(true);
     setTimeout(() => {
       setIsClosing(false);
@@ -26,16 +41,18 @@ export function Sidebar({
     }, 180);
   };
 
-  const perfilLabel = PERFIL_LABELS[perfil] ?? "USUÁRIO";
+  const perfilLabel = PERFIL_NOMES[perfil] ?? "Usuário";
   const displayName = profile?.nome || profile?.email || "Usuário";
 
-  if (!isOpen && !isClosing) return null; // 👈 controle de montagem
+  if (!isOpen && !isClosing) return null;
 
   return (
     <aside
       style={{
-        width: 220,
-        minHeight: "100vh",
+        width: 252,
+        height: "100vh",
+        position: "sticky",
+        top: 0,
         background: C.white,
         borderRight: `1px solid ${C.gray200}`,
         display: "flex",
@@ -58,157 +75,155 @@ export function Sidebar({
         }
       `}</style>
 
-      {/* Logo */}
+      {/* Marca */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: "1rem",
-          borderBottom: `1px solid ${C.gray200}`,
+          height: 64,
+          padding: "0 1rem 0 1.25rem",
+          borderBottom: `1px solid ${C.gray100}`,
         }}
       >
-        <span
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 6,
-            background: C.blue,
-            color: C.white,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.85rem",
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          C
-        </span>
-        <span
-          style={{ fontSize: "0.82rem", fontWeight: 600, color: C.gray900 }}
-        >
-          Plataforma CENY
-        </span>
+        <CenyLogo size={30} />
+        <div style={{ lineHeight: 1.15 }}>
+          <div
+            style={{
+              fontSize: "0.98rem",
+              fontWeight: 700,
+              color: C.gray900,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Ceny
+          </div>
+          <div style={{ fontSize: "0.68rem", color: C.gray400, fontWeight: 500 }}>
+            Gestão Industrial
+          </div>
+        </div>
         <button
           onClick={handleToggle}
-          style={{
-            marginLeft: "auto",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: C.gray400,
-            display: "flex",
-            alignItems: "center",
-            padding: 4,
-            borderRadius: 4,
-            flexShrink: 0,
-          }}
+          className="ceny-icon-btn"
+          title="Recolher menu"
+          aria-label="Recolher menu"
+          style={{ marginLeft: "auto", width: 30, height: 30, color: C.gray400 }}
         >
-          <Ico name="close" size={15} />
+          <Ico name="panelLeft" size={16} />
         </button>
       </div>
 
-      {/* Info do usuário */}
-      <div
-        style={{ padding: "0.5rem", borderBottom: `1px solid ${C.gray200}` }}
+      {/* Navegação */}
+      <nav
+        style={{
+          flex: 1,
+          padding: "1.1rem 0.75rem",
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}
       >
         <div
           style={{
-            padding: "0.5rem 0.75rem",
-            background: C.blueLight,
-            borderRadius: 6,
+            fontSize: "0.66rem",
+            fontWeight: 600,
+            color: C.gray400,
+            letterSpacing: "0.08em",
+            padding: "0 0.75rem 0.5rem",
           }}
         >
-          <div style={{ fontSize: "0.72rem", fontWeight: 600, color: C.blue }}>
-            {perfilLabel}
-          </div>
-          <div style={{ fontSize: "0.78rem", color: C.gray700, marginTop: 2 }}>
-            {displayName}
-          </div>
-          {profile?.email && profile?.nome && (
-            <div
-              style={{ fontSize: "0.68rem", color: C.gray400, marginTop: 1 }}
-            >
-              {profile.email}
-            </div>
-          )}
+          MENU
         </div>
-      </div>
-
-      {/* Navegação */}
-      <nav style={{ flex: 1, padding: "0.5rem 0", overflowY: "auto" }}>
         {menu.map(({ label, icon, page: p }) => (
           <button
             key={p}
             onClick={() => onNavigate(p)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "0.55rem 1rem",
-              fontSize: "0.82rem",
-              fontWeight: page === p ? 500 : 400,
-              color: page === p ? C.blue : C.gray500,
-              background: page === p ? C.blueLight : "none",
-              border: "none",
-              cursor: "pointer",
-              width: "100%",
-              textAlign: "left",
-              transition: "all 0.12s",
-            }}
+            className="ceny-nav-item"
+            data-active={page === p}
+            aria-current={page === p ? "page" : undefined}
           >
-            <span
-              style={{
-                color: page === p ? C.blue : C.gray400,
-                display: "flex",
-              }}
-            >
-              <Ico name={icon} size={15} />
-            </span>
+            <Ico name={icon} size={17} />
             {label}
           </button>
         ))}
       </nav>
 
-      {/* Footer */}
-      <div
-        style={{ padding: "0.85rem 1rem", borderTop: `1px solid ${C.gray200}` }}
-      >
-        <button
-          onClick={onLogout}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            color: C.gray500,
-            fontSize: "0.78rem",
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-          }}
-        >
-          <Ico name="logout" size={14} /> Sair do sistema
-        </button>
+      {/* Usuário */}
+      <div style={{ padding: "0.75rem", borderTop: `1px solid ${C.gray100}` }}>
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 6,
-            marginTop: 8,
+            gap: 10,
+            padding: "0.6rem",
+            borderRadius: 10,
+            background: C.gray50,
+            border: `1px solid ${C.gray100}`,
           }}
         >
           <span
             style={{
-              width: 7,
-              height: 7,
+              width: 34,
+              height: 34,
               borderRadius: "50%",
-              background: C.green,
+              background: `linear-gradient(135deg, ${C.blue}, #5b8bff)`,
+              color: C.white,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              flexShrink: 0,
             }}
-          />
-          <span style={{ fontSize: "0.68rem", color: C.gray400 }}>
-            Sistema Online
+          >
+            {iniciais(displayName)}
           </span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                color: C.gray900,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={displayName}
+            >
+              {displayName}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: "0.7rem",
+                color: C.gray500,
+                marginTop: 1,
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: C.green,
+                  flexShrink: 0,
+                }}
+              />
+              {perfilLabel}
+            </div>
+          </div>
+          <button
+            onClick={onLogout}
+            className="ceny-icon-btn"
+            title="Sair do sistema"
+            aria-label="Sair do sistema"
+            style={{ width: 30, height: 30, color: C.gray400 }}
+          >
+            <Ico name="logout" size={15} />
+          </button>
         </div>
       </div>
     </aside>

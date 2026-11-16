@@ -278,7 +278,7 @@ function Formulario({
         style={{
           background: C.gray50,
           border: `1px solid ${C.gray200}`,
-          borderRadius: 6,
+          borderRadius: 8,
           padding: "0.75rem 0.9rem",
           fontSize: "0.8rem",
           color: C.gray700,
@@ -362,8 +362,8 @@ function Formulario({
           style={{
             padding: "0.6rem 0.8rem",
             background: C.redLight,
-            border: `1px solid ${C.red}`,
-            borderRadius: 6,
+            border: "1px solid #fecaca",
+            borderRadius: 8,
             color: C.redDark,
             fontSize: "0.8rem",
           }}
@@ -399,7 +399,7 @@ function AreaTexto({ label, value, onChange, max, linhas, placeholder, error, aj
         style={{
           padding: "0.6rem 0.85rem",
           border: `1px solid ${error ? "red" : C.gray300}`,
-          borderRadius: 4,
+          borderRadius: 6,
           fontSize: "0.9rem",
           color: C.gray900,
           fontFamily: font,

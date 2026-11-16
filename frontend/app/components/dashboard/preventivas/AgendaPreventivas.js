@@ -110,7 +110,8 @@ export function AgendaPreventivas({ itens, hoje, mostrarHistorico, onAbrirPlano 
         style={{
           background: C.white,
           border: `1px solid ${C.gray200}`,
-          borderRadius: 8,
+          borderRadius: 12,
+          boxShadow: C.shadowCard,
           padding: "1.5rem",
           color: C.gray500,
           fontSize: "0.85rem",

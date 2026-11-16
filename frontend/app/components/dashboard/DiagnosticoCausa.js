@@ -65,7 +65,7 @@ const listaSecao = {
 const textareaStyle = {
   padding: "0.6rem 0.85rem",
   border: `1px solid ${C.gray300}`,
-  borderRadius: 4,
+  borderRadius: 6,
   fontSize: "0.85rem",
   resize: "vertical",
   outline: "none",
@@ -169,7 +169,7 @@ export function ResumoDiagnosticoCausa({ diagnostico, podeDescartar = false, onD
         padding: "0.85rem",
         background: descartado ? C.gray50 : C.amberLight,
         border: `1px solid ${descartado ? C.gray300 : "#fcd34d"}`,
-        borderRadius: 6,
+        borderRadius: 8,
         display: "flex",
         flexDirection: "column",
         gap: 8,
@@ -220,7 +220,7 @@ export function ResumoDiagnosticoCausa({ diagnostico, podeDescartar = false, onD
             gap: 6,
             padding: "0.45rem 0.65rem",
             background: C.greenLight,
-            borderRadius: 4,
+            borderRadius: 6,
             fontSize: "0.78rem",
             color: C.greenDark,
           }}
@@ -398,7 +398,7 @@ export function GerarDiagnosticoCausa({ onGerar }) {
       style={{
         padding: "0.85rem",
         border: `1px dashed ${C.gray300}`,
-        borderRadius: 6,
+        borderRadius: 8,
         display: "flex",
         flexDirection: "column",
         gap: 8,
@@ -488,7 +488,8 @@ export function IndicadoresDiagnosticoIA({ indicadores }) {
         padding: "0.6rem 0.85rem",
         background: C.white,
         border: `1px solid ${C.gray200}`,
-        borderRadius: 8,
+        borderRadius: 12,
+        boxShadow: C.shadowCard,
         fontSize: "0.78rem",
         color: C.gray600,
       }}

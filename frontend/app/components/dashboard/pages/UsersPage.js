@@ -327,7 +327,7 @@ export function UsersPage() {
           <h2
             style={{
               margin: 0,
-              fontSize: "1rem",
+              fontSize: "1.4rem", letterSpacing: "-0.02em",
               fontWeight: 700,
               color: C.gray900,
             }}
@@ -335,7 +335,7 @@ export function UsersPage() {
             Usuários do Sistema
           </h2>
           <p
-            style={{ margin: "2px 0 0", fontSize: "0.78rem", color: C.gray400 }}
+            style={{ margin: "4px 0 0", fontSize: "0.85rem", color: C.gray500 }}
           >
             {usuarios.length} usuário{usuarios.length !== 1 ? "s" : ""}{" "}
             cadastrado{usuarios.length !== 1 ? "s" : ""}
@@ -381,7 +381,8 @@ export function UsersPage() {
           style={{
             background: C.white,
             border: `1px solid ${C.gray200}`,
-            borderRadius: 8,
+            borderRadius: 12,
+            boxShadow: C.shadowCard,
             overflow: "hidden",
           }}
         >
@@ -549,7 +550,8 @@ export function UsersPage() {
           style={{
             background: C.white,
             border: `1px solid ${C.gray200}`,
-            borderRadius: 8,
+            borderRadius: 12,
+            boxShadow: C.shadowCard,
             padding: "1.25rem",
           }}
         >
@@ -594,7 +596,7 @@ export function UsersPage() {
                 marginBottom: "1.25rem",
                 padding: "1rem",
                 background: C.gray50,
-                borderRadius: 6,
+                borderRadius: 8,
                 border: `1px solid ${C.gray200}`,
               }}
             >
@@ -619,7 +621,7 @@ export function UsersPage() {
                       background: C.greenLight,
                       color: C.greenDark,
                       border: `1px solid #86efac`,
-                      borderRadius: 4,
+                      borderRadius: 6,
                       padding: "3px 8px",
                       fontSize: "0.75rem",
                     }}

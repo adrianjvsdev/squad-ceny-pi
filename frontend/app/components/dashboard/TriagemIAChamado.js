@@ -18,7 +18,7 @@ const NIVEIS_PRIORIDADE = Object.keys(PRIORIDADE_LABELS);
 const textareaStyle = {
   padding: "0.6rem 0.85rem",
   border: `1px solid ${C.gray300}`,
-  borderRadius: 4,
+  borderRadius: 6,
   fontSize: "0.9rem",
   resize: "vertical",
   outline: "none",
@@ -75,7 +75,7 @@ function Aviso({ cor = "amber", children }) {
         padding: "0.65rem 0.85rem",
         background: s.bg,
         border: `1px solid ${s.border}`,
-        borderRadius: 6,
+        borderRadius: 8,
         fontSize: "0.78rem",
         color: s.text,
         lineHeight: 1.5,
@@ -101,7 +101,7 @@ export function SeletorModoCriacao({ modo, onChange }) {
         gap: 4,
         padding: 4,
         background: C.gray100,
-        borderRadius: 6,
+        borderRadius: 8,
       }}
     >
       {opcoes.map(([valor, label, icone]) => {
@@ -119,7 +119,7 @@ export function SeletorModoCriacao({ modo, onChange }) {
               gap: 6,
               padding: "0.45rem",
               border: "none",
-              borderRadius: 4,
+              borderRadius: 6,
               cursor: "pointer",
               fontFamily: font,
               fontSize: "0.8rem",
@@ -462,7 +462,7 @@ export function ResumoTriagemIA({ triagem, prioridadeFinal }) {
         padding: "0.85rem",
         background: C.purpleLight,
         border: "1px solid #c4b5fd",
-        borderRadius: 6,
+        borderRadius: 8,
         display: "flex",
         flexDirection: "column",
         gap: 8,

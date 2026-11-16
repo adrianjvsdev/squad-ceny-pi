@@ -28,12 +28,12 @@ export function Ico({ name, size = 16, color }) {
 // ============================================================
 export function Badge({ children, color = "blue" }) {
   const map = {
-    blue: { bg: C.blueLight2, text: "#1e40af", border: "#93c5fd" },
-    green: { bg: C.greenLight, text: C.greenDark, border: "#86efac" },
-    amber: { bg: C.amberLight, text: C.amberDark, border: "#fcd34d" },
-    red: { bg: C.redLight, text: C.redDark, border: "#fca5a5" },
-    purple: { bg: C.purpleLight, text: C.purpleDark, border: "#c4b5fd" },
-    gray: { bg: C.gray100, text: C.gray600, border: C.gray300 },
+    blue: { bg: C.blueLight, text: C.blueDark, border: "#c7d7fd" },
+    green: { bg: "#f0fdf4", text: C.greenDark, border: "#bbf7d0" },
+    amber: { bg: C.amberLight, text: C.amberDark, border: "#fde68a" },
+    red: { bg: C.redLight, text: C.redDark, border: "#fecaca" },
+    purple: { bg: C.purpleLight, text: C.purpleDark, border: "#ddd6fe" },
+    gray: { bg: C.gray50, text: C.gray600, border: C.gray200 },
   };
   const s = map[color] || map.blue;
   return (
@@ -42,11 +42,15 @@ export function Badge({ children, color = "blue" }) {
         background: s.bg,
         color: s.text,
         border: `1px solid ${s.border}`,
-        borderRadius: 4,
-        padding: "2px 8px",
+        borderRadius: 999,
+        padding: "2px 9px",
         fontSize: 11,
         fontWeight: 600,
+        lineHeight: "16px",
+        letterSpacing: "0.01em",
         whiteSpace: "nowrap",
+        display: "inline-flex",
+        alignItems: "center",
       }}
     >
       {children}
@@ -61,11 +65,11 @@ export function IoTBadge() {
   return (
     <span
       style={{
-        background: "#0f172a",
-        color: "#38bdf8",
-        border: "1px solid #0ea5e9",
-        borderRadius: 4,
-        padding: "2px 7px",
+        background: "#ecfeff",
+        color: "#0e7490",
+        border: "1px solid #a5f3fc",
+        borderRadius: 999,
+        padding: "2px 8px",
         fontSize: 10,
         fontWeight: 700,
         display: "inline-flex",
@@ -79,7 +83,7 @@ export function IoTBadge() {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          background: "#38bdf8",
+          background: "#06b6d4",
           animation: "pulse 1.5s infinite",
         }}
       />
@@ -107,10 +111,11 @@ export function Tooltip({ text, children }) {
             bottom: "calc(100% + 8px)",
             left: "50%",
             transform: "translateX(-50%)",
-            background: C.gray800,
+            background: C.gray900,
             color: C.white,
             padding: "6px 10px",
-            borderRadius: 6,
+            borderRadius: 8,
+            fontWeight: 500,
             fontSize: 12,
             whiteSpace: "nowrap",
             zIndex: 200,
@@ -129,7 +134,7 @@ export function Tooltip({ text, children }) {
               height: 0,
               borderLeft: "5px solid transparent",
               borderRight: "5px solid transparent",
-              borderTop: `5px solid ${C.gray800}`,
+              borderTop: `5px solid ${C.gray900}`,
             }}
           />
         </div>
@@ -195,12 +200,15 @@ export function Modal({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.45)",
+        background: "rgba(15, 23, 42, 0.45)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
         zIndex: 1000,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: 16,
+        animation: "fadeIn 0.15s ease",
       }}
       onClick={fechar}
     >
@@ -211,13 +219,15 @@ export function Modal({
         aria-label={typeof title === "string" ? title : undefined}
         style={{
           background: C.white,
-          borderRadius: 8,
+          borderRadius: 16,
           width: "100%",
           maxWidth: width,
           maxHeight: "90vh",
           overflow: "auto",
           padding: "1.5rem",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+          border: `1px solid ${C.gray200}`,
+          boxShadow: C.shadowLg,
+          animation: "modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -226,15 +236,19 @@ export function Modal({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: "1.25rem",
+            gap: 12,
+            margin: "-0.25rem 0 1.25rem",
+            paddingBottom: "1rem",
+            borderBottom: `1px solid ${C.gray100}`,
           }}
         >
           <h3
             style={{
               margin: 0,
-              fontSize: "1rem",
-              fontWeight: 600,
+              fontSize: "1.05rem",
+              fontWeight: 650,
               color: C.gray900,
+              letterSpacing: "-0.01em",
             }}
           >
             {title}
@@ -244,12 +258,13 @@ export function Modal({
             onClick={fechar}
             aria-label="Fechar"
             disabled={bloquearFechamento}
+            className="ceny-icon-btn"
             style={{
-              border: "none",
-              background: "none",
+              width: 32,
+              height: 32,
+              flexShrink: 0,
               cursor: bloquearFechamento ? "not-allowed" : "pointer",
               color: C.gray400,
-              display: "flex",
             }}
           >
             <Ico name="x" size={18} />
@@ -264,6 +279,31 @@ export function Modal({
 // ============================================================
 // INPUT
 // ============================================================
+const labelStyle = {
+  fontSize: 13,
+  fontWeight: 500,
+  color: C.gray700,
+};
+
+const fieldStyle = (error) => ({
+  height: 40,
+  padding: "0 0.8rem",
+  border: `1px solid ${error ? C.red : C.gray300}`,
+  borderRadius: 8,
+  fontSize: "0.9rem",
+  color: C.gray900,
+  outline: "none",
+  fontFamily: font,
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+});
+
+function FieldError({ children }) {
+  return (
+    <span style={{ fontSize: "0.75rem", color: C.red, fontWeight: 500 }}>
+      {children}
+    </span>
+  );
+}
 export function Input({
   label,
   type = "text",
@@ -276,16 +316,7 @@ export function Input({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && (
-        <label
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: C.gray700,
-            letterSpacing: "0.05em",
-          }}
-        >
-          {label.toUpperCase()}
-        </label>
+        <label style={labelStyle}>{label}</label>
       )}
       <input
         type={type}
@@ -294,20 +325,12 @@ export function Input({
         onChange={onChange}
         {...props}
         style={{
-          padding: "0.6rem 0.85rem",
-          border: `1px solid ${error ? "red" : C.gray300}`,
-          borderRadius: 4,
-          fontSize: "0.9rem",
-          color: C.gray900,
-          outline: "none",
-          fontFamily: font,
+          ...fieldStyle(error),
           background: C.white,
           ...props.style,
         }}
       />
-      {error && (
-        <span style={{ fontSize: "0.72rem", color: "red" }}>{error}</span>
-      )}
+      {error && <FieldError>{error}</FieldError>}
     </div>
   );
 }
@@ -327,16 +350,7 @@ export function Select({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && (
-        <label
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: C.gray700,
-            letterSpacing: "0.05em",
-          }}
-        >
-          {label.toUpperCase()}
-        </label>
+        <label style={labelStyle}>{label}</label>
       )}
       <select
         value={value}
@@ -344,13 +358,7 @@ export function Select({
         disabled={disabled}
         {...props}
         style={{
-          padding: "0.6rem 0.85rem",
-          border: `1px solid ${error ? "red" : C.gray300}`,
-          borderRadius: 4,
-          fontSize: "0.9rem",
-          color: C.gray900,
-          outline: "none",
-          fontFamily: font,
+          ...fieldStyle(error),
           background: disabled ? C.gray100 : C.white,
           cursor: disabled ? "not-allowed" : undefined,
           ...props.style,
@@ -358,9 +366,7 @@ export function Select({
       >
         {children}
       </select>
-      {error && (
-        <span style={{ fontSize: "0.72rem", color: "red" }}>{error}</span>
-      )}
+      {error && <FieldError>{error}</FieldError>}
     </div>
   );
 }
@@ -378,45 +384,72 @@ export function Btn({
   // Repassados ao <button>: type, title, aria-label, style...
   ...props
 }) {
+  const [hover, setHover] = useState(false);
+  const ativo = hover && !disabled;
+  const { onMouseEnter, onMouseLeave, ...rest } = props;
+
   const base = {
-    border: "none",
+    border: "1px solid transparent",
     cursor: disabled ? "not-allowed" : "pointer",
-    borderRadius: 4,
+    borderRadius: 8,
     fontFamily: font,
     fontWeight: 600,
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
-    transition: "all 0.15s",
+    justifyContent: "center",
+    gap: 7,
+    whiteSpace: "nowrap",
+    lineHeight: 1.2,
+    transition:
+      "background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease",
     opacity: disabled ? 0.55 : 1,
   };
   const sizes = {
-    sm: { padding: "0.4rem 0.8rem", fontSize: "0.78rem" },
-    md: { padding: "0.6rem 1.1rem", fontSize: "0.88rem" },
-    lg: { padding: "0.8rem 1.5rem", fontSize: "0.95rem" },
+    sm: { minHeight: 32, padding: "0.35rem 0.75rem", fontSize: "0.78rem" },
+    md: { minHeight: 38, padding: "0.5rem 1rem", fontSize: "0.85rem" },
+    lg: { minHeight: 46, padding: "0.7rem 1.4rem", fontSize: "0.95rem" },
   };
   const variants = {
-    primary: { background: C.blue, color: C.white },
-    secondary: {
-      background: "transparent",
-      color: C.blue,
-      border: `1px solid ${C.blue}`,
+    primary: {
+      background: ativo ? C.blueHover : C.blue,
+      color: C.white,
+      boxShadow: ativo
+        ? "0 4px 12px -2px rgba(43, 92, 230, 0.45)"
+        : "0 1px 2px rgba(43, 92, 230, 0.3)",
     },
-    danger: { background: C.red, color: C.white },
+    secondary: {
+      background: ativo ? C.blueLight : C.white,
+      color: C.blue,
+      border: `1px solid ${ativo ? C.blue : "#b9cbfa"}`,
+    },
+    danger: {
+      background: ativo ? C.redDark : C.red,
+      color: C.white,
+      boxShadow: "0 1px 2px rgba(220, 38, 38, 0.3)",
+    },
     ghost: {
-      background: "transparent",
-      color: C.gray600,
-      border: `1px solid ${C.gray200}`,
+      background: ativo ? C.gray50 : C.white,
+      color: ativo ? C.gray900 : C.gray700,
+      border: `1px solid ${ativo ? C.gray300 : C.gray200}`,
+      boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
     },
   };
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      {...props}
+      {...rest}
+      onMouseEnter={(e) => {
+        setHover(true);
+        onMouseEnter?.(e);
+      }}
+      onMouseLeave={(e) => {
+        setHover(false);
+        onMouseLeave?.(e);
+      }}
       style={{ ...base, ...sizes[size], ...variants[variant], ...props.style }}
     >
-      {icon && <Ico name={icon} size={14} />}
+      {icon && <Ico name={icon} size={size === "sm" ? 13 : 15} />}
       {children}
     </button>
   );

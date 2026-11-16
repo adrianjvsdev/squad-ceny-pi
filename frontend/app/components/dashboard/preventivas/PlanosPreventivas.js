@@ -40,7 +40,8 @@ export function PlanosPreventivas({ planos, hoje, isAdmin, processandoId, acoes 
         style={{
           background: C.white,
           border: `1px solid ${C.gray200}`,
-          borderRadius: 8,
+          borderRadius: 12,
+          boxShadow: C.shadowCard,
           padding: "1.5rem",
           color: C.gray500,
           fontSize: "0.85rem",
@@ -53,7 +54,7 @@ export function PlanosPreventivas({ planos, hoje, isAdmin, processandoId, acoes 
   }
 
   return (
-    <div style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 8, overflowX: "auto" }}>
+    <div style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 12, boxShadow: C.shadowCard, overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
         <thead>
           <tr style={{ background: C.gray50 }}>

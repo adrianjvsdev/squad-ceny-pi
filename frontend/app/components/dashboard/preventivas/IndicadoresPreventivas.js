@@ -7,7 +7,8 @@ import { Ico } from "@/app/components/ui";
 const cartao = {
   background: C.white,
   border: `1px solid ${C.gray200}`,
-  borderRadius: 8,
+  borderRadius: 12,
+  boxShadow: C.shadowCard,
   padding: "1rem 1.1rem",
   display: "flex",
   flexDirection: "column",
@@ -116,7 +117,8 @@ export function CargaTecnicos({ carga }) {
       style={{
         background: C.white,
         border: `1px solid ${C.gray200}`,
-        borderRadius: 8,
+        borderRadius: 12,
+        boxShadow: C.shadowCard,
         padding: "1rem 1.1rem",
         display: "flex",
         flexDirection: "column",
@@ -148,13 +150,13 @@ export function CargaTecnicos({ carga }) {
           >
             {linha.nome}
           </span>
-          <div style={{ height: 8, background: C.gray100, borderRadius: 4, overflow: "hidden" }}>
+          <div style={{ height: 8, background: C.gray100, borderRadius: 6, overflow: "hidden" }}>
             <div
               style={{
                 width: `${(linha.horas / maior) * 100}%`,
                 height: "100%",
                 background: linha.id_tecnico ? C.blue : C.gray400,
-                borderRadius: 4,
+                borderRadius: 6,
               }}
             />
           </div>

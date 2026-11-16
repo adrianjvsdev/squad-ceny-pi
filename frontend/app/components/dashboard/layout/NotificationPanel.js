@@ -2,20 +2,18 @@
 
 import { useState } from "react";
 import { C } from "@/lib/constants";
-import { Badge, Ico } from "../../ui";
+import { Ico } from "../../ui";
+import { TOPBAR_HEIGHT } from "./Topbar";
 
 const TIPO_CONFIG = {
-  os_aberta: { color: "blue", symbol: "i" },
-  os_atualizada: { color: "amber", symbol: "↻" },
-  os_concluida: { color: "green", symbol: "✓" },
-  plano_vencendo: { color: "red", symbol: "⚠" },
+  os_aberta: { icon: "ticket", bg: C.blueLight, fg: C.blue },
+  os_atualizada: { icon: "activity", bg: C.amberLight, fg: "#d97706" },
+  os_concluida: { icon: "check", bg: "#f0fdf4", fg: C.green },
+  plano_vencendo: { icon: "alert", bg: C.redLight, fg: C.red },
 };
 
-function tipoColor(tipo) {
-  return TIPO_CONFIG[tipo]?.color ?? "gray";
-}
-function tipoSymbol(tipo) {
-  return TIPO_CONFIG[tipo]?.symbol ?? "i";
+function tipoConfig(tipo) {
+  return TIPO_CONFIG[tipo] ?? { icon: "info", bg: C.gray100, fg: C.gray500 };
 }
 
 function formatTime(iso) {
@@ -56,12 +54,14 @@ export function NotificationPanel({
     <div
       style={{
         position: "fixed",
-        top: 52,
+        top: TOPBAR_HEIGHT,
         right: 0,
-        width: 360,
-        height: "calc(100vh - 52px)",
+        width: 380,
+        maxWidth: "100vw",
+        height: `calc(100vh - ${TOPBAR_HEIGHT}px)`,
         background: C.white,
         borderLeft: `1px solid ${C.gray200}`,
+        boxShadow: "-12px 0 32px -12px rgba(15, 23, 42, 0.18)",
         zIndex: 100,
         display: "flex",
         flexDirection: "column",
@@ -85,7 +85,7 @@ export function NotificationPanel({
       {/* ── Cabeçalho ── */}
       <div
         style={{
-          padding: "1rem",
+          padding: "1rem 1.1rem",
           borderBottom: `1px solid ${C.gray200}`,
           display: "flex",
           alignItems: "center",
@@ -96,9 +96,10 @@ export function NotificationPanel({
           <h3
             style={{
               margin: 0,
-              fontSize: "0.9rem",
+              fontSize: "0.95rem",
               fontWeight: 700,
               color: C.gray900,
+              letterSpacing: "-0.01em",
             }}
           >
             Notificações
@@ -113,9 +114,12 @@ export function NotificationPanel({
             disabled={unreadCount === 0}
             style={{
               border: "none",
-              background: "none",
+              background: unreadCount === 0 ? "none" : C.blueLight,
               cursor: unreadCount === 0 ? "default" : "pointer",
               fontSize: 12,
+              fontWeight: 600,
+              padding: "0.35rem 0.65rem",
+              borderRadius: 6,
               color: unreadCount === 0 ? C.gray300 : C.blue,
               transition: "color 0.15s",
             }}
@@ -124,13 +128,9 @@ export function NotificationPanel({
           </button>
           <button
             onClick={handleClose}
-            style={{
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-              color: C.gray400,
-              display: "flex",
-            }}
+            className="ceny-icon-btn"
+            aria-label="Fechar notificações"
+            style={{ width: 30, height: 30, color: C.gray400 }}
           >
             <Ico name="x" size={16} />
           </button>
@@ -140,16 +140,33 @@ export function NotificationPanel({
       {/* ── Lista ── */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {notifications.length === 0 && (
-          <p
+          <div
             style={{
-              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 10,
+              marginTop: "3.5rem",
               color: C.gray400,
-              marginTop: "2.5rem",
-              fontSize: "0.82rem",
+              fontSize: "0.85rem",
             }}
           >
-            Nenhuma notificação
-          </p>
+            <span
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                background: C.gray50,
+                border: `1px solid ${C.gray200}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ico name="bell" size={20} />
+            </span>
+            Tudo em dia por aqui
+          </div>
         )}
 
         {notifications.map((n) => (
@@ -157,27 +174,44 @@ export function NotificationPanel({
             key={n.id_notificacao}
             onClick={() => !n.lida && onMarkRead(n.id_notificacao)}
             style={{
-              padding: "0.85rem 1rem",
+              padding: "0.9rem 1.1rem",
               borderBottom: `1px solid ${C.gray100}`,
-              background: n.lida ? C.white : C.blueLight,
+              background: n.lida ? C.white : "#f7f9ff",
               cursor: n.lida ? "default" : "pointer",
               display: "flex",
               gap: 12,
+              position: "relative",
               transition: "background 0.15s",
             }}
           >
-            {/* Bolinha */}
-            <div
+            {/* Indicador de não lida */}
+            {!n.lida && (
+              <span
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 3,
+                  background: C.blue,
+                }}
+              />
+            )}
+            <span
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: n.lida ? "transparent" : C.blue,
-                marginTop: 6,
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: tipoConfig(n.tipo).bg,
+                color: tipoConfig(n.tipo).fg,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 flexShrink: 0,
-                transition: "background 0.15s",
               }}
-            />
+            >
+              <Ico name={tipoConfig(n.tipo).icon} size={15} />
+            </span>
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
@@ -191,9 +225,9 @@ export function NotificationPanel({
                 {/* titulo vindo direto do banco */}
                 <span
                   style={{
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    color: C.gray800,
+                    fontSize: "0.83rem",
+                    fontWeight: n.lida ? 500 : 650,
+                    color: C.gray900,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -210,24 +244,15 @@ export function NotificationPanel({
                     flexShrink: 0,
                   }}
                 >
-                  <Badge color={tipoColor(n.tipo)}>{tipoSymbol(n.tipo)}</Badge>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onDelete(n.id_notificacao);
                     }}
                     title="Excluir"
-                    style={{
-                      border: "none",
-                      background: "none",
-                      cursor: "pointer",
-                      color: C.gray400,
-                      display: "flex",
-                      alignItems: "center",
-                      padding: 2,
-                      borderRadius: 3,
-                      lineHeight: 1,
-                    }}
+                    aria-label="Excluir notificação"
+                    className="ceny-icon-btn"
+                    style={{ width: 24, height: 24, color: C.gray400 }}
                   >
                     <Ico name="x" size={13} />
                   </button>
@@ -238,8 +263,9 @@ export function NotificationPanel({
               {n.mensagem && (
                 <p
                   style={{
-                    margin: "2px 0 4px",
+                    margin: "2px 0 6px",
                     fontSize: "0.78rem",
+                    lineHeight: 1.5,
                     color: C.gray500,
                   }}
                 >

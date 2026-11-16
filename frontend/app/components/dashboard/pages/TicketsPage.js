@@ -510,10 +510,10 @@ export function TicketsPage({ userType, profile }) {
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: C.gray900 }}>
+          <h2 style={{ margin: 0, fontSize: "1.4rem", letterSpacing: "-0.02em", fontWeight: 700, color: C.gray900 }}>
             Chamados
           </h2>
-          <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: C.gray400 }}>
+          <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: C.gray500 }}>
             {loadingTickets ? "Carregando..." : `${ticketsUI.length} chamados no sistema`}
           </p>
         </div>
@@ -552,7 +552,8 @@ export function TicketsPage({ userType, profile }) {
             style={{
               background: C.white,
               border: `1px solid ${C.gray200}`,
-              borderRadius: 8,
+              borderRadius: 12,
+              boxShadow: C.shadowCard,
               padding: "0.85rem",
               textAlign: "center",
             }}
@@ -587,8 +588,8 @@ export function TicketsPage({ userType, profile }) {
           style={{
             padding: "0.75rem 1rem",
             background: C.redLight,
-            border: `1px solid ${C.red}`,
-            borderRadius: 6,
+            border: "1px solid #fecaca",
+            borderRadius: 8,
             color: C.redDark,
             fontSize: "0.8rem",
           }}
@@ -602,8 +603,8 @@ export function TicketsPage({ userType, profile }) {
           style={{
             padding: "0.75rem 1rem",
             background: C.redLight,
-            border: `1px solid ${C.red}`,
-            borderRadius: 6,
+            border: "1px solid #fecaca",
+            borderRadius: 8,
             color: C.redDark,
             fontSize: "0.8rem",
           }}
@@ -619,7 +620,8 @@ export function TicketsPage({ userType, profile }) {
             style={{
               background: C.white,
               border: `1px solid ${C.gray200}`,
-              borderRadius: 8,
+              borderRadius: 12,
+              boxShadow: C.shadowCard,
               padding: "1rem 1.25rem",
               color: C.gray500,
             }}
@@ -631,7 +633,8 @@ export function TicketsPage({ userType, profile }) {
             style={{
               background: C.white,
               border: `1px solid ${C.gray200}`,
-              borderRadius: 8,
+              borderRadius: 12,
+              boxShadow: C.shadowCard,
               padding: "1rem 1.25rem",
               color: C.gray500,
             }}
@@ -656,7 +659,8 @@ export function TicketsPage({ userType, profile }) {
               style={{
                 background: C.white,
                 border: `1px solid ${C.gray200}`,
-                borderRadius: 8,
+                borderRadius: 12,
+                boxShadow: C.shadowCard,
                 padding: "1rem 1.25rem",
                 cursor: "pointer",
                 transition: "border-color 0.15s, box-shadow 0.15s",
@@ -739,13 +743,13 @@ export function TicketsPage({ userType, profile }) {
                 ["Conclusão", selected.finished],
                 ["Próxima manutenção", selected.proximaManutencaoLabel],
               ].map(([k, v]) => (
-                <div key={k} style={{ padding: "0.65rem 0.85rem", background: C.gray50, borderRadius: 6 }}>
+                <div key={k} style={{ padding: "0.65rem 0.85rem", background: C.gray50, borderRadius: 8 }}>
                   <div style={{ fontSize: "0.68rem", fontWeight: 600, color: C.gray400, marginBottom: 2 }}>{k.toUpperCase()}</div>
                   <div style={{ fontSize: "0.85rem", color: C.gray800 }}>{v}</div>
                 </div>
               ))}
             </div>
-            <div style={{ padding: "0.85rem", background: C.gray50, borderRadius: 6 }}>
+            <div style={{ padding: "0.85rem", background: C.gray50, borderRadius: 8 }}>
               <div style={{ fontSize: "0.68rem", fontWeight: 600, color: C.gray400, marginBottom: 6 }}>DESCRIÇÃO</div>
               <p style={{ margin: 0, fontSize: "0.85rem", color: C.gray700, lineHeight: 1.6 }}>{selected.desc}</p>
             </div>
@@ -846,7 +850,7 @@ export function TicketsPage({ userType, profile }) {
                     onChange={(e) => setRelatorioConclusao(e.target.value)}
                     rows={3}
                     placeholder="Descreva o que foi feito para resolver a OS..."
-                    style={{ padding: "0.6rem 0.85rem", border: `1px solid ${C.gray300}`, borderRadius: 4, fontSize: "0.9rem", resize: "vertical", outline: "none" }}
+                    style={{ padding: "0.6rem 0.85rem", border: `1px solid ${C.gray300}`, borderRadius: 6, fontSize: "0.9rem", resize: "vertical", outline: "none" }}
                   />
                 </div>
                 {selected.planoProximaExecucao ? (
@@ -855,7 +859,7 @@ export function TicketsPage({ userType, profile }) {
                       padding: "0.65rem 0.85rem",
                       background: C.blueLight,
                       border: `1px solid ${C.blueLight2}`,
-                      borderRadius: 6,
+                      borderRadius: 8,
                       fontSize: "0.8rem",
                       color: C.gray700,
                     }}
@@ -990,13 +994,13 @@ export function TicketsPage({ userType, profile }) {
               onChange={(e) => setForm((f) => ({ ...f, desc: e.target.value }))}
               rows={4}
               placeholder="Descreva o problema ou necessidade em detalhes..."
-              style={{ padding: "0.6rem 0.85rem", border: `1px solid ${C.gray300}`, borderRadius: 4, fontSize: "0.9rem", resize: "vertical", outline: "none" }}
+              style={{ padding: "0.6rem 0.85rem", border: `1px solid ${C.gray300}`, borderRadius: 6, fontSize: "0.9rem", resize: "vertical", outline: "none" }}
             />
           </div>
 
           {erroForm && <p style={{ margin: 0, fontSize: "0.78rem", color: C.redDark }}>{erroForm}</p>}
 
-          <div style={{ padding: "0.65rem 0.85rem", background: C.amberLight, border: `1px solid #fcd34d`, borderRadius: 6 }}>
+          <div style={{ padding: "0.65rem 0.85rem", background: C.amberLight, border: `1px solid #fcd34d`, borderRadius: 8 }}>
             <div style={{ fontSize: "0.75rem", color: C.amberDark }}>
               <strong>Anexos:</strong> Você pode adicionar fotos ou documentos após criar o chamado.
             </div>
