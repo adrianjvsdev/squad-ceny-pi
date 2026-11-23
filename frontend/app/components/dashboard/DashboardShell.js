@@ -7,6 +7,7 @@ import { NotificationPanel } from "./layout/NotificationPanel";
 import { OverviewPage } from "./pages/OverviewPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { PreventivasPage } from "./pages/PreventivasPage";
+import { RelatoriosPage } from "./pages/RelatoriosPage";
 import { TicketsPage } from "./pages/TicketsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RiskMapPage, SettingsPage } from "./pages/OtherPages";
@@ -41,6 +42,12 @@ const ALL_MENU = [
     label: "Preventivas",
     icon: "calendar",
     page: "preventivas",
+    roles: ["admin", "tecnico", "operador"],
+  },
+  {
+    label: "Relatórios",
+    icon: "chart",
+    page: "reports",
     roles: ["admin", "tecnico", "operador"],
   },
   {
@@ -79,6 +86,8 @@ function PageContent({ page, perfil, profile, onProfileUpdate }) {
       return <InventoryPage userType={perfil} />;
     case "preventivas":
       return <PreventivasPage userType={perfil} />;
+    case "reports":
+      return <RelatoriosPage />;
     case "riskmap":
       return <RiskMapPage userType={perfil} />;
     case "users":

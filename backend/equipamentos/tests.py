@@ -1,4 +1,7 @@
+from datetime import datetime, timezone as dt_timezone
 from unittest.mock import patch
+
+from django.utils import timezone
 
 from config.testutils import (
     BaseTestCase,
@@ -130,6 +133,50 @@ class EquipamentoViewSetTests(BaseTestCase):
         )
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["status"], "ativo")
+
+    def test_criar_grava_o_momento_do_cadastro_como_entrada_em_operacao(self):
+        antes = timezone.now()
+        resp = self.cliente(self.c.admin).post(
+            "/api/equipamentos/",
+            {"nome": "Novo", "id_setor": self.c.setor.pk},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+        entrada = Equipamento.objects.get(pk=resp.data["id_equipamento"]).data_entrada_operacao
+        self.assertIsNotNone(entrada)
+        self.assertGreaterEqual(entrada, antes)
+        self.assertLessEqual(entrada, timezone.now())
+
+    def test_criar_respeita_entrada_em_operacao_informada(self):
+        informada = datetime(2025, 3, 10, 8, 0, tzinfo=dt_timezone.utc)
+        resp = self.cliente(self.c.admin).post(
+            "/api/equipamentos/",
+            {
+                "nome": "Novo",
+                "id_setor": self.c.setor.pk,
+                "data_entrada_operacao": informada.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(
+            Equipamento.objects.get(pk=resp.data["id_equipamento"]).data_entrada_operacao,
+            informada,
+        )
+
+    def test_editar_nao_altera_a_entrada_em_operacao(self):
+        resp = self.cliente(self.c.admin).post(
+            "/api/equipamentos/",
+            {"nome": "Novo", "id_setor": self.c.setor.pk},
+            format="json",
+        )
+        equipamento = Equipamento.objects.get(pk=resp.data["id_equipamento"])
+        entrada = equipamento.data_entrada_operacao
+        self.cliente(self.c.admin).patch(
+            f"/api/equipamentos/{equipamento.pk}/", {"nome": "Renomeado"}, format="json"
+        )
+        equipamento.refresh_from_db()
+        self.assertEqual(equipamento.data_entrada_operacao, entrada)
 
     def test_criar_em_setor_de_outra_empresa_400(self):
         resp = self.cliente(self.c.admin).post(

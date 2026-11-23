@@ -4,6 +4,7 @@ import re
 import unicodedata
 
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from .models import Equipamento
 
@@ -43,7 +44,12 @@ def proxima_tag(prefixo: str) -> str:
 def criar_com_tag_automatica(**dados) -> Equipamento:
     """Cria o equipamento com a proxima TAG livre. Se dois cadastros
     simultaneos pegarem o mesmo numero, a restricao unica barra o segundo, que
-    tenta o numero seguinte."""
+    tenta o numero seguinte.
+
+    Sem data de entrada em operacao informada, vale o momento do cadastro: e
+    dela que os relatorios de confiabilidade (MTBF/MTTF) contam o tempo."""
+    if not dados.get("data_entrada_operacao"):
+        dados["data_entrada_operacao"] = timezone.now()
     prefixo = prefixo_da_tag(dados.get("nome", ""))
     for _ in range(TENTATIVAS):
         try:
