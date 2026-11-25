@@ -13,6 +13,7 @@ import re
 import secrets
 import time
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx  # transporte do google-genai: timeout/conexao chegam como httpx.TransportError
@@ -240,6 +241,13 @@ SCHEMA_RESPOSTA = {
 
 _CARACTERES_DE_CONTROLE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
+# Strategy: contrato dos validadores aceitos por consultar_gemini. Recebe o
+# JSON devolvido pela IA e devolve so os campos saneados; levanta
+# RespostaIAInvalida quando a resposta nao serve (o Context tenta de novo).
+# Estrategias concretas: _validar_resposta (triagem, abaixo) e
+# diagnostico_ia.validar_resposta (pre-diagnostico).
+ValidadorResposta = Callable[[dict], dict]
+
 
 def interpretar_texto(
     texto: str, usuario: Usuario, id_equipamento: int | None = None
@@ -362,13 +370,15 @@ def consultar_gemini(
     instrucao: str,
     conteudo: str,
     schema: dict,
-    validar,
+    validar: ValidadorResposta,
     contexto: dict,
     rotulo: str = "triagem_ia",
 ) -> dict:
     """Chama o Gemini com saida estruturada e devolve `validar(json)`.
 
-    Usado pela triagem e pelo pre-diagnostico. Erros transitorios (timeout,
+    Context do Strategy: o algoritmo da chamada (cliente, timeout, retry com
+    backoff, traducao de erros) e fixo; a validacao da resposta e a
+    estrategia recebida em `validar`. Usado pela triagem e pelo pre-diagnostico. Erros transitorios (timeout,
     conexao, 408/429/5xx) e respostas fora do schema (RespostaIAInvalida
     levantada por `validar`) sao retentados com backoff exponencial ate
     GEMINI_MAX_RETRIES vezes; erros definitivos (ex.: 400/403, chave
@@ -477,7 +487,9 @@ def _ler_json(texto_resposta: str | None) -> dict:
 
 
 def _validar_resposta(dados: dict) -> dict:
-    """Nao confia na saida da IA: confere enums e tipos, saneia os textos e
+    """Estrategia de validacao da triagem (ver ValidadorResposta).
+
+    Nao confia na saida da IA: confere enums e tipos, saneia os textos e
     descarta qualquer campo fora do schema."""
     if dados.get("prioridade_sugerida") not in OrdemServico.Prioridade.values:
         raise RespostaIAInvalida("prioridade_sugerida fora do enum")

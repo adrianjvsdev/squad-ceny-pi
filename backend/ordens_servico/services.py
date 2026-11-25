@@ -1,3 +1,10 @@
+"""Facade (GoF) das ordens de servico: uma interface simples (aprovar,
+rejeitar, reabrir, iniciar, concluir...) sobre o subsistema que cada acao
+envolve (OS, equipamento, plano preventivo, diagnostico e notificacoes).
+Cada acao roda numa transacao (tudo ou nada). As views so traduzem HTTP
+para estas chamadas."""
+
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -30,6 +37,7 @@ class OrdemServicoService:
         )
 
     @staticmethod
+    @transaction.atomic
     def aprovar(ordem, admin_user, tecnico_id=None):
         """Aprova uma OS aberta por operador e notifica os envolvidos."""
         OrdemServicoService._validar_pendente_de_aprovacao(ordem, "aprovadas")
@@ -59,6 +67,7 @@ class OrdemServicoService:
         return ordem
 
     @staticmethod
+    @transaction.atomic
     def rejeitar(ordem):
         """Rejeita uma OS aberta por operador e notifica o solicitante."""
         OrdemServicoService._validar_pendente_de_aprovacao(ordem, "rejeitadas")
@@ -69,6 +78,7 @@ class OrdemServicoService:
         return ordem
 
     @staticmethod
+    @transaction.atomic
     def reabrir(ordem):
         """Reabre uma OS cancelada ou concluida e notifica o solicitante."""
         if ordem.status not in (
@@ -103,6 +113,7 @@ class OrdemServicoService:
         return ordem.plano_origem.proxima_execucao
 
     @staticmethod
+    @transaction.atomic
     def concluir(
         ordem, relatorio=None, proxima_manutencao=None, causa_confirmada=None, causa_real=None
     ):
@@ -154,15 +165,24 @@ class OrdemServicoService:
         return ordem
 
     @staticmethod
+    @transaction.atomic
     def desativar_abertas(queryset):
-        """Cancela ordens abertas, preservando ordens preditivas de IoT."""
+        """Cancela ordens abertas, preservando ordens preditivas de IoT.
+
+        Salva uma a uma (e nao com QuerySet.update) para que cada
+        cancelamento dispare o post_save e chegue ao log de auditoria."""
         abertas = queryset.filter(status=OrdemServico.Status.ABERTA)
         cancelaveis = abertas.exclude(
             Q(solicitante__isnull=True)
             & Q(id_equipamento__tem_iot=True)
             & Q(tipo_manutencao=OrdemServico.TipoManutencao.PREDITIVA)
         )
-        return cancelaveis.update(status=OrdemServico.Status.CANCELADA)
+        total = 0
+        for ordem in cancelaveis:
+            ordem.status = OrdemServico.Status.CANCELADA
+            ordem.save(update_fields=["status"])
+            total += 1
+        return total
 
     @staticmethod
     def _validar_pendente_de_aprovacao(ordem, acao):

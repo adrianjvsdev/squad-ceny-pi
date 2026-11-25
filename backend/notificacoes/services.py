@@ -5,7 +5,9 @@ from .models import Notificacao
 
 
 class NotificacaoService:
-    """Centraliza a emissao de notificacoes de ordens de servico e planos."""
+    """Facade (GoF) das notificacoes: quem avisa chama um metodo
+    (notificar_aprovacao...) sem conhecer destinatarios, canal nem o model
+    Notificacao. Centraliza os avisos de ordens de servico e planos."""
 
     @staticmethod
     def _nova(

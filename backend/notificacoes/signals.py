@@ -1,11 +1,13 @@
 """
 signals.py — notificacoes
 
-Registra automaticamente ações no LogAuditoria via Django signals.
-Para ativar, chame ready() no AppConfig (notificacoes/apps.py).
+Observer: registra automaticamente no LogAuditoria cada mudança de estado
+dos modelos observados (OrdemServico, PlanoManutencao). Os modelos não
+conhecem estes receivers; a inscrição acontece no ready() de
+notificacoes/apps.py.
 
-Modelos monitorados: OrdemServico, PlanoManutencao.
-Adicione mais conforme necessário.
+Atenção: QuerySet.update(), bulk_create() e bulk_update() não disparam
+signals. Para que a mudança seja auditada, salve com save().
 """
 
 from django.db.models.signals import post_save, post_delete

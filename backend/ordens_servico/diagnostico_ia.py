@@ -345,7 +345,10 @@ def montar_contexto(ordem: OrdemServico) -> tuple[dict, dict]:
 
 
 def validar_resposta(dados: dict) -> dict:
-    """Nao confia na saida da IA: confere tipos e enums, saneia e corta os
+    """Estrategia de validacao do pre-diagnostico (ver
+    triagem_ia.ValidadorResposta).
+
+    Nao confia na saida da IA: confere tipos e enums, saneia e corta os
     textos e ordena as hipoteses pela confianca."""
     if dados.get("tipo_problema") not in TriagemIA.TipoProblema.values:
         raise RespostaIAInvalida("tipo_problema fora do enum")
